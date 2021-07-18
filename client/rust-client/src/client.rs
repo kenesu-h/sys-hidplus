@@ -29,7 +29,7 @@ impl Client {
   pub fn new() -> Client {
     return Client {
       gilrs: Gilrs::new().unwrap(),
-      pads: c![EmulatedPad::new(), for i in 0..4]
+      pads: c![EmulatedPad::new(), for _i in 0..4]
     }
   }
  
@@ -37,16 +37,16 @@ impl Client {
    * A method that attempts to assign the given gamepad id and switch pad type to an open slot.
    * If there's no open slot, we return an error.
    */
-  fn assign_pad(&mut self, gamepad_id: &GamepadId, switch_pad: SwitchPad) -> Result<&str, &str> {
+  fn assign_pad(&mut self, gamepad_id: &GamepadId, switch_pad: SwitchPad) -> Result<String, String> {
     let mut slot: i8 = 1;
     for pad in &mut self.pads {
       if !pad.is_connected(&mut self.gilrs) {
         pad.connect(gamepad_id, switch_pad);
-        return Ok(format!("Gamepad (id: {}) connected to slot {}", gamepad_id, slot));
+        return Ok(format!("Gamepad (id: {}) connected to slot {}.", &gamepad_id, slot));
       }
       slot = slot + 1;
     }
-    return Err("Couldn't assign controller since there were no slots available.")
+    return Err("Couldn't assign controller since there were no slots available.".to_string());
   }
 
   /**
