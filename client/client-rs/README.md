@@ -1,4 +1,4 @@
-# sys-hidplus rust-client
+# sys-hidplus-client-rs
 A Rust rewrite of the original input client for sys-hidplus.
 
 After noticing that sys-hidplus wasn't updated in a while, plus the fact that the input client was
@@ -13,12 +13,15 @@ painfully slow in terms of runtime, possibly because of some of the many modules
 # Why Rust?
 I mostly wanted to rewrite the client using Rust because:
 - I'm currently learning it and want to practice it more.
-- It's memory and thread-safe while simultaneously being performant.
+- It's memory and thread-safe while maintaining decent performance.
 - In my experience, Rust crates are documented way better (and sometimes more capable) than Python
-modules.  `gilrs` has proved to be more feature-rich and better-documented than `inputs`.
+modules.
+  - `gilrs` has proved to be more feature-rich and better-documented than `inputs`.
+- Dependency management is a lot easier thanks to Cargo.
+- No need for users to install languages and modules since this is compiled to a binary.
 
 # Differences
-The rewrite is mostly the same as the original (including 4th controller support), with an addition
+The rewrite is mostly the same as the original (including 4th controller support) with an addition
 here and there, but it also excludes some features that I haven't gotten to.
 
 ## Additions
@@ -28,6 +31,8 @@ reconnected. This slot can be overridden by other controllers if another is assi
 disconnected.
 - A controller can be assigned to the first available slot by pressing LTrigger (ZL) + RTrigger
 (ZR). This also means controllers are not assigned when the client is started.
+- Controller configuration is now in a separate config file as opposed to being within the main
+script.
 
 ## Modifications
 - Adaptation to Rust (kind of a given).
@@ -53,4 +58,4 @@ If you want to contact me about this, you can reach me at Kenesu#2586 on Discord
 # Credits
 Credits go to Ignaclo(?) for sys-hidplus as a whole and everyone else who helped them out. I really
 mean no offense with this fork, and besides, I wouldn't be even be doing this if it weren't for all
-their hard work.
+their hard work making sys-hidplus as great as it already is.
