@@ -31,5 +31,5 @@ fn main() {
     .expect("Expected a config to be generated from a file.");
 
   let mut client: Client = Client::new(config);
-  client.start(ip, false);
+  client.start(ip, true);
 }
