@@ -1,8 +1,11 @@
 pub mod client;
+pub mod config;
 pub mod input;
 
-use crate::client::Client;
-
+use crate::{
+  client::Client,
+  config::Config
+};
 use clap::{Arg, App, ArgMatches};
 
 #[macro_use(c)]
@@ -22,7 +25,11 @@ fn main() {
       .takes_value(true)
     )
     .get_matches();
+
   let ip: &str = matches.value_of("ip").unwrap();
-  let mut client: Client = Client::new();
-  client.start(ip, true);
+  let config: Config = confy::load_path("./config.toml")
+    .expect("Expected a config to be generated from a file.");
+
+  let mut client: Client = Client::new(config);
+  client.start(ip, false);
 }

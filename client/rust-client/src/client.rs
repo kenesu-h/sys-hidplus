@@ -1,4 +1,5 @@
 use crate::input::{SwitchPad, EmulatedPad};
+use crate::config::Config;
 
 use gilrs::{
   Gilrs,
@@ -20,14 +21,16 @@ use std::{
  * - A list of emulated pads.
  */
 pub struct Client {
+  config: Config,
   gilrs: Gilrs,
   pads: Vec<EmulatedPad>,
 }
 
 impl Client {
   // Constructs a client with a GilRs instance and a fixed amount of disconnected emulated pads.
-  pub fn new() -> Client {
+  pub fn new(config: Config) -> Client {
     return Client {
+      config: config,
       gilrs: Gilrs::new().unwrap(),
       pads: c![EmulatedPad::new(), for _i in 0..4]
     }
@@ -35,16 +38,22 @@ impl Client {
  
   /**
    * A method that attempts to assign the given gamepad id and switch pad type to an open slot.
+   * Slots are open so as long as they are not equal to None.
    * If there's no open slot, we return an error.
    */
-  fn assign_pad(&mut self, gamepad_id: &GamepadId, switch_pad: SwitchPad) -> Result<String, String> {
-    let mut slot: i8 = 1;
+  fn assign_pad(&mut self, gamepad_id: &GamepadId, config_pads: &Vec<Option<SwitchPad>>) -> Result<String, String> {
+    let mut i: usize = 0;
     for pad in &mut self.pads {
       if !pad.is_connected(&mut self.gilrs) {
-        pad.connect(gamepad_id, switch_pad);
-        return Ok(format!("Gamepad (id: {}) connected to slot {}.", &gamepad_id, slot));
+        match config_pads[i] {
+          Some(switch_pad) => {
+            pad.connect(gamepad_id, switch_pad);
+            return Ok(format!("Gamepad (id: {}) connected to slot {}.", &gamepad_id, i + 1));
+          },
+          None => ()
+        }
       }
-      slot = slot + 1;
+      i = i + 1;
     }
     return Err("Couldn't assign controller since there were no slots available.".to_string());
   }
@@ -58,7 +67,8 @@ impl Client {
    */
   pub fn start(&mut self, ip: &str, online: bool) -> () {
     // 0.0.0.0 will be bound to localhost, don't worry
-    let sock: UdpSocket = UdpSocket::bind("0.0.0.0:8000").unwrap(); 
+    let sock: UdpSocket = UdpSocket::bind("0.0.0.0:8000").unwrap();
+    let config_pads: Vec<Option<SwitchPad>> = self.config.to_vec();
     loop {
       while let Some(Event { id: gamepad_id, event, time: _ }) = self.gilrs.next_event() {
         let mut gamepad_mapped: bool = false; 
@@ -77,7 +87,7 @@ impl Client {
               // Might be able to do this by temporarily setting a pad's switch_pad to None for one
               // tick, then setting it to the original value the next tick. This hasn't worked for
               // me when I tried it though.
-              match self.assign_pad(&gamepad_id, SwitchPad::ProController) {
+              match self.assign_pad(&gamepad_id, &config_pads) {
                 Err(e) => println!("{}", e),
                 Ok(msg) => println!("{}", msg)
               }

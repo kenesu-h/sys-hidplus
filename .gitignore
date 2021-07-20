@@ -14,3 +14,4 @@
 .vscode/
 __pycache__/
 target/
+config.toml

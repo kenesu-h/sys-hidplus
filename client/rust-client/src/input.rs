@@ -5,8 +5,10 @@ use gilrs::{
   Axis,
   Button
 };
+use serde::{Serialize, Deserialize};
 
 // An enum representing the different Switch controllers that can be emulated.
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum SwitchPad {
   ProController,
   JoyConLSide,

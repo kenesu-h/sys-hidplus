@@ -1,6 +1,6 @@
 [package]
-name = "rust-client"
-version = "0.1.0"
+name = "sys-hidplus-client-rs"
+version = "1.0.0"
 authors = ["Kenneth <Kenneth@DESKTOP-VHTOUHH>"]
 edition = "2018"
 
@@ -8,6 +8,8 @@ edition = "2018"
 
 [dependencies]
 clap = "2.33.3"
-gilrs = "0.8.1"
+confy = "0.4.0"
 cute = "0.3.0"
+gilrs = "0.8.1"
+serde = { version = "1.0.126", features = ["derive"] }
 structure = "0.1.2"
