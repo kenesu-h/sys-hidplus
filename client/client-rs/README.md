@@ -33,6 +33,7 @@ disconnected.
 (ZR). This also means controllers are not assigned when the client is started.
 - Controller configuration is now in a separate config file as opposed to being within the main
 script.
+- Controllers will now be disconnected when using Ctrl-C to close the client.
 
 ## Modifications
 - Adaptation to Rust (kind of a given).
@@ -41,10 +42,14 @@ abstracting controller polling.
 - Polling is event-driven and single-threaded as opposed to being multi-threaded. This may have
 unintended side-effects, but so far it's doing okay.
 
-## Things I haven't gotten to and/or are still a mystery to me
-- I haven't implemented stick states changing based on the sideways joy-cons used.
-- For some reason, I can't seem to disconnect disconnected (by the Switch) controllers by setting
-their type to None (or 0). In fact, I usually need to reboot my Switch to get them working again.
+## Things that don't work and/or are still a mystery to me
+- Sideways joy-cons don't work. I'm not sure what the reason is, but this also happened with the
+original input client.
+- If a controller is disconnected by the Switch - like through the "Change Grip/Order" menu or the
+new "disconnect" button in Smash Ultimate - you cannot reconnect it and there seems to be nothing
+you can do about it. This renders some games unplayable. The only way to fix or alleviate this is to
+restart your Switch if it happens, and avoid any menus (if possible) that may disconnect your
+controllers forcefully.
 
 Aside from that, this rewrite is still pretty functional. I have no idea if the same issues from the
 original apply - such as stick inversion on Linux and input lag on demanding games - since I don't
