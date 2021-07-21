@@ -11,8 +11,11 @@ use serde::{Serialize, Deserialize};
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum SwitchPad {
   ProController,
+
+  // See comment in SwitchPad::value()
   JoyConLSide,
   JoyConRSide,
+
   /* TO BE ADDED:
   JoyConLR,
   JoyConL,
@@ -25,8 +28,25 @@ impl SwitchPad {
   pub fn value(&self) -> i8 {
     match self {
       Self::ProController => return 1,
+
+      /*
+      Using RednaxelaNnamtra's sysmodule build, these do not work, or at least one of them.
+      JoyConLSide is connected as a single left joy-con (expected to be paired with a right one),
+      and is NOT sideways. This prevents it from being usable since you can't use the d-pad
+      buttons as your four face buttons; they act as normal d-pad buttons due to them thinking
+      they should be paired with a right joy-con. I haven't tested right sideways joy-cons,
+      but I suspect it suffers from the same problem.
+
+      I have no clue if this is because of RednaxelaNnamtra's build (which uses an updated version
+      of libnx), or if the server-side of things didn't handle joy-cons properly, but judging
+      from the original thread, joy-cons worked properly in the past and a libnx update broke them.
+      Assuming this is true:
+
+      TODO: Update the input server to make individual joy-cons sideways rather than "paired".
+      */
       Self::JoyConLSide => return 2,
       Self::JoyConRSide => return 3,
+
       /* TO BE ADDED:
       Self::JoyConLR => return 4,
       Self::JoyConL => return 5,

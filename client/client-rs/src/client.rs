@@ -9,8 +9,7 @@ use gilrs::{
 };
 use std::{
   net::UdpSocket,
-  time,
-  thread
+  time
 };
 
 /**
@@ -22,6 +21,8 @@ use std::{
  */
 pub struct Client {
   config: Config,
+  sock: UdpSocket,
+  server_ip: String,
   gilrs: Gilrs,
   pads: Vec<EmulatedPad>,
 }
@@ -31,6 +32,9 @@ impl Client {
   pub fn new(config: Config) -> Client {
     return Client {
       config: config,
+      // Unwrapping here might not be the best thing but I'll handle it later
+      sock: UdpSocket::bind("0.0.0.0:8000").unwrap(),
+      server_ip: "".to_string(),
       gilrs: Gilrs::new().unwrap(),
       pads: c![EmulatedPad::new(), for _i in 0..4]
     }
@@ -55,58 +59,113 @@ impl Client {
       }
       i = i + 1;
     }
-    return Err("Couldn't assign controller since there were no slots available.".to_string());
+    return Err("Couldn't assign gamepad since there were no slots available.".to_string());
+  }
+
+  // A method that sets the target server IP of this client.
+  pub fn set_server_ip(&mut self, server_ip: &str) -> () {
+    self.server_ip = server_ip.to_string();
   }
 
   /**
-   * A method that starts the primary loop of this client.
+   * A method that updates this client by parsing gamepad events and updating their respective
+   * emulated pads, then sending those emulated pads to the Switch.
    * 
-   * At a fixed time interval (1/60s, but may differ for different games), the loop should:
-   * - Poll gamepad inputs and assigning unassigned gamepads to a slot.
-   * - If we're sending inputs to a Switch, send inputs.
+   * This was originally in a start() method in an endless loop, but was moved into this so main()
+   * could simultaneously update the client and respond to Ctrl-C events; Rust would be picky
+   * about thread-safety and references being moved otherwise, which is a whole other can of
+   * worms that would be way too much to handle - in particular, GilRs structs are not thread-safe
+   * and I really would not like to make thread-safe GilRs wrappers (or directly edit it) just for
+   * this.
+   * 
+   * Either way, this method should be called at a fixed time interval, ideally matching that of
+   * (1 / <the framerate>). Any more than that and input delay might get bad in certain scenarios.
+   * - I've experienced such delay in Smash's stage and character selection screens.
+   * - Normal Smash gameplay is surprisingly fine and doesn't seem to be affected by this.
+   * - POSSIBLY corresponds to lag in demanding games like Mario Odyssey, but I don't have it so I
+   *   can't test this.
+   * 
+   * TODO: This could potentially be alleviated if the Switch sent packets back telling us its
+   * current framerate so we could adjust the loop time interval, but:
+   * 1. I don't know if libnx has such a function to return the current framerate (a quick search
+   *    suggests otherwise).
+   * 2. I'm not sure if Rust allows you to dynamically adjust the time interval/tickrate, but in
+   *    theory, this should be possible; check main() for this.
    */
-  pub fn start(&mut self, ip: &str, online: bool) -> () {
-    // 0.0.0.0 will be bound to localhost, don't worry
-    let sock: UdpSocket = UdpSocket::bind("0.0.0.0:8000").unwrap();
-    let config_pads: Vec<Option<SwitchPad>> = self.config.to_vec();
-    loop {
-      while let Some(Event { id: gamepad_id, event, time: _ }) = self.gilrs.next_event() {
-        let mut gamepad_mapped: bool = false; 
-        for pad in &mut self.pads {
-          if pad.is_connected(&mut self.gilrs)
-          && pad.get_gamepad_id().unwrap() == gamepad_id {
-            gamepad_mapped = true;
-            pad.update(&event);
-          }
+  pub fn update(&mut self) -> () {
+    while let Some(Event { id: gamepad_id, event, time: _ }) = self.gilrs.next_event() {
+      let mut gamepad_mapped: bool = false;
+      // Here, we find if the current gamepad is assigned to any emulated one.
+      for pad in &mut self.pads {
+        if pad.is_connected(&mut self.gilrs)
+        && pad.get_gamepad_id().unwrap() == gamepad_id {
+          gamepad_mapped = true;
+          pad.update(&event);
+          break;
         }
-        if !gamepad_mapped {
-          if let Some(gamepad) = Some(gamepad_id).map(|id| self.gilrs.gamepad(id)) {
-            if gamepad.is_pressed(Button::LeftTrigger2)
-            && gamepad.is_pressed(Button::RightTrigger2) {
-              // TODO: Properly reset controllers if they've been disconnected by the Switch
-              // Might be able to do this by temporarily setting a pad's switch_pad to None for one
-              // tick, then setting it to the original value the next tick. This hasn't worked for
-              // me when I tried it though.
-              match self.assign_pad(&gamepad_id, &config_pads) {
-                Err(e) => println!("{}", e),
-                Ok(msg) => println!("{}", msg)
-              }
+      }
+      // If it isn't and they pressed both triggers, attempt to assign them to one.
+      if !gamepad_mapped {
+        if let Some(gamepad) = Some(gamepad_id).map(|id| self.gilrs.gamepad(id)) {
+          if gamepad.is_pressed(Button::LeftTrigger2)
+          && gamepad.is_pressed(Button::RightTrigger2) {
+            match self.assign_pad(&gamepad_id, &(self.config.to_vec())) {
+              Err(e) => println!("{}", e),
+              Ok(msg) => println!("{}", msg)
             }
-          } 
-        }
+          }
+        } 
       }
-      if online {
-        let connected: i8 = self.get_connected();
-        match sock.send_to(
-          &PackedData::new(&self.pads, connected).to_bytes(),
-          format!("{}:8000", ip)
-        ) {
-          Err(e) => println!("{}", e),
-          Ok(_) => ()
-        }
-      }
-      thread::sleep(time::Duration::from_secs_f32(1.0 / 60.0));
     }
+    let connected: i8 = self.get_connected();
+    match self.sock.send_to(
+      &PackedData::new(&self.pads, connected).to_bytes(),
+      format!("{}:8000", self.server_ip)
+    ) {
+      Err(e) => println!("{}", e),
+      Ok(_) => ()
+    }
+  }
+
+  // A method that's SUPPOSED to cleanup all the controllers so that they're gone.
+  /*
+  The big problem is that we're using a UDP socket to tell the Switch "controllers are gone".
+
+  Unfortunately, UDP is liable to drops and I imagine that's what's happening when you use reset
+  just once. Because of this, you need to send many packets so that at least one will HOPEFULLY tell
+  the Switch all the controllers are gone, which is (I think) why the original implementation
+  required that you change all the controller types to 0, then rerun the client (then close) to
+  accomplish this. However, this is really clunky, which is why I'm trying to make this easier.
+
+  While the obvious solution is to use a TCP socket or invent our own protocol where the Switch
+  sends back a "disconnected" message, I'm not particularly thrilled about installing a Switch
+  development environment, working with C++ (I might be a Rust user, but idk C++ and any low-level
+  stuff involved that well), and dealing with the already-multi-threaded nature of the sysmodule.
+  Though I understand a large portion of the client, I don't understand a whole lot of the
+  server/sysmodule portion of this at the time of writing this and I hate working with multi-
+  threaded code (even just college examples of this were difficult to debug).
+
+  Because of this, I'm implementing this in a way that we attempt to reset many, many times over the
+  course of 3 seconds. In other words, it's a brute force method of cleaning up the controllers
+  where we throw shit at the wall until it sticks, but it seems like the best way that doesn't
+  involve me digging into the sysmodule portion of the code (yet).
+
+  I'd love to make this method server-agnostic, but I don't see a good way yet.
+  */
+  pub fn cleanup(&mut self) -> Result<String, String> {
+    println!("Cleaning up connected gamepads... This will take a moment.");
+    self.pads = c![EmulatedPad::new(), for _i in 0..4];
+    let start: time::Instant = time::Instant::now();
+    while start.elapsed().as_millis() < 3000 {
+      match self.sock.send_to(
+        &PackedData::new(&self.pads, 4).to_bytes(),
+        format!("{}:8000", self.server_ip)
+      ) {
+        Err(e) => return Err(e.to_string()),
+        Ok(_) => ()
+      }
+    }
+    return Ok("Gamepads should now be cleaned up.".to_string());
   }
 
   // A method that returns the number of pads connected to this client.
