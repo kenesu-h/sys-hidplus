@@ -41,6 +41,10 @@ script.
 abstracting controller polling.
 - Polling is event-driven and single-threaded as opposed to being multi-threaded. This may have
 unintended side-effects, but so far it's doing okay.
+- Unfortunately, the client itself isn't as universally accessible since building it via Cargo only
+makes it runnable for the OS that did so; a client executable built on Windows will only work on
+Windows, Linux for Linux, etc. Luckily, Rust is somewhat easy to install thanks to methods like
+`rustup`.
 
 ## Things that don't work and/or are still a mystery to me
 - Sideways joy-cons don't work. I'm not sure what the reason is, but this also happened with the
@@ -56,6 +60,12 @@ original apply - such as stick inversion on Linux and input lag on demanding gam
 have many games on the Switch to test this with. I don't have a computer with Linux on it to test
 either, but that might be mitigated from using `gilrs`, which is supposed to be better in terms of
 cross-platform functionality.
+
+# Compiling
+Compilation assumes you have Rust installed, which should come with Cargo.
+
+Compiling is as easy as running `cargo build` within the root. You should be left with a binary
+executable in `target/debug/` runnable only by your OS.
 
 # Contact
 If you want to contact me about this, you can reach me at Kenesu#2586 on Discord.
