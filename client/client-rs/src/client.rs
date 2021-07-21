@@ -16,6 +16,9 @@ use std::{
  * A struct representing the main input client.
  * 
  * An input client should have:
+ * - A config that dictates what Switch pad types each slot should be assigned.
+ * - A UDP socket to transmit emulated pad info to a Switch.
+ * - The server IP of the Switch.
  * - A way to access gamepad events (a GilRs instance in this case).
  * - A list of emulated pads.
  */
@@ -28,11 +31,16 @@ pub struct Client {
 }
 
 impl Client {
-  // Constructs a client with a GilRs instance and a fixed amount of disconnected emulated pads.
+  /**
+   * Constructs a client from a configuration.
+   * 
+   * By default, it initializes a UDP socket, no server IP, a GilRs instance, and emulated pads
+   * each with a switch pad type of None.
+   */
   pub fn new(config: Config) -> Client {
     return Client {
       config: config,
-      // Unwrapping here might not be the best thing but I'll handle it later
+      // Unwrapping here might not be the best thing
       sock: UdpSocket::bind("0.0.0.0:8000").unwrap(),
       server_ip: "".to_string(),
       gilrs: Gilrs::new().unwrap(),
