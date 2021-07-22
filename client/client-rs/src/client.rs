@@ -77,7 +77,7 @@ impl Client {
 
   /**
    * A method that updates this client by parsing gamepad events and updating their respective
-   * emulated pads, then sending those emulated pads to the Switch.
+   * emulated pads.
    * 
    * This was originally in a start() method in an endless loop, but was moved into this so main()
    * could simultaneously update the client and respond to Ctrl-C events; Rust would be picky
@@ -100,7 +100,9 @@ impl Client {
    * 2. I'm not sure if Rust allows you to dynamically adjust the time interval/tickrate, but in
    *    theory, this should be possible; check main() for this.
    */
-  pub fn update(&mut self) -> () {
+  pub fn update_pads(&mut self) -> () {
+    // It's possible this could bottleneck since it's all single-threaded, but I haven't encountered
+    // any issues yet.
     while let Some(Event { id: gamepad_id, event, time: _ }) = self.gilrs.next_event() {
       let mut gamepad_mapped: bool = false;
       // Here, we find if the current gamepad is assigned to any emulated one.
@@ -125,13 +127,19 @@ impl Client {
         } 
       }
     }
-    let connected: i8 = self.get_connected();
+  }
+
+  // A method that sends the current emulated pad states to the Switch (the input server).
+  // Like update_pads(), this should be called at a fixed time interval too.
+  pub fn update_server(&self) -> Result<(), String> {
     match self.sock.send_to(
-      &PackedData::new(&self.pads, connected).to_bytes(),
+      &PackedData::new(&self.pads, self.get_connected()).to_bytes(),
       format!("{}:8000", self.server_ip)
     ) {
-      Err(e) => println!("{}", e),
-      Ok(_) => ()
+      Err(e) => return Err(
+        format!("The following error occurred: {}. The given IP is either invalid or improperly formatted.", e)
+      ),
+      Ok(_) => Ok(())
     }
   }
 
@@ -177,10 +185,10 @@ impl Client {
   }
 
   // A method that returns the number of pads connected to this client.
-  fn get_connected(&mut self) -> i8 {
+  fn get_connected(&self) -> i8 {
     let mut connected: i8 = 0;
     for pad in &self.pads {
-      if pad.is_connected(&mut self.gilrs) {
+      if pad.is_connected(&self.gilrs) {
         connected = connected + 1;
       }
     }

@@ -56,7 +56,15 @@ fn main() -> Result<(), ctrlc::Error> {
   loop {
     select! {
       recv(ticks) -> _ => {
-        client.update();
+        client.update_pads();
+        match client.update_server() {
+          Err(e) => {
+            println!("{}", e);
+            // This isn't actually ok but it's a way to end when we get a socket error
+            return Ok(());
+          },
+          Ok(_) => ()
+        }
       }
       recv(ctrl_c_events) -> _ => {
         match client.cleanup() {

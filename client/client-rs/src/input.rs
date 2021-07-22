@@ -231,7 +231,7 @@ impl EmulatedPad {
 
   // Returns whether this pad is connected by checking if its gamepad id is in GilRs' list of
   // connected gamepads.
-  pub fn is_connected(&self, gilrs: &mut Gilrs) -> bool {
+  pub fn is_connected(&self, gilrs: &Gilrs) -> bool {
     match self.gamepad_id.map(|id| gilrs.gamepad(id)) {
       Some(_) => return true,
       None => return false
