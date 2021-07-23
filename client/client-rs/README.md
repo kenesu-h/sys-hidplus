@@ -69,7 +69,7 @@ being the lack of an `exe` file extension.
 ./client-rs <server_ip>
 ```
 
-### Cargo
+#### Cargo
 If no executable has been compiled for your OS or doesn't work, you're going to have to use Cargo to
 build and run the source code.
 
