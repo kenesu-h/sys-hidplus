@@ -50,7 +50,7 @@ fn main() -> Result<(), ctrlc::Error> {
   // TODO: Change later, we should be checking for the current OS before deciding on an input reader.
   let mut client: Client = Client::new(
     config,
-    Box::new(GilrsInputReader::new()),
+    GilrsInputReader::new(),
     // Some(Box::new(MultiInputReader::new())),
     None
   );

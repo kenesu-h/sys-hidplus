@@ -45,7 +45,7 @@ impl InputEvent {
 }
 
 pub trait InputReader {
-  fn read(&mut self) -> Result<Vec<InputEvent>, String>;
+  fn read(&mut self) -> Vec<InputEvent>;
 
   fn is_connected(&mut self, gamepad_id: &usize) -> bool;
 }
@@ -93,7 +93,7 @@ impl GilrsInputReader {
 }
 
 impl InputReader for GilrsInputReader {
-  fn read(&mut self) -> Result<Vec<InputEvent>, String> {
+  fn read(&mut self) -> Vec<InputEvent> {
     let mut events: Vec<InputEvent> = vec!();
     while let Some(gilrs::Event { id: gamepad_id, event: event_type, time: _ }) = self.gilrs.next_event() {
       match event_type {
@@ -101,22 +101,20 @@ impl InputReader for GilrsInputReader {
           events.push(InputEvent::GamepadButton(
             gamepad_id.try_into().unwrap(),
             self.to_button(&button).unwrap(),
-            value as f32
+            value
           ))
         },
         gilrs::EventType::AxisChanged(axis, value, _) => {
           events.push(InputEvent::GamepadAxis(
             gamepad_id.try_into().unwrap(),
             self.to_axis(&axis).unwrap(),
-            value as f32
+            value
           ))
         },
-        _ => return Err(
-          format!("{:?} is currently an unsupported Gilrs event type.", event_type)
-        )
+        _ => ()
       }
     }
-    return Ok(events);
+    return events;
   }
 
   // The O(n) nature of this method makes its usage in client.rs O(n^2). Not great.
@@ -214,7 +212,7 @@ impl MultiInputReader {
 }
 
 impl InputReader for MultiInputReader {
-  fn read(&mut self) -> Result<Vec<InputEvent>, String> {
+  fn read(&mut self) -> Vec<InputEvent> {
     let mut events: Vec<InputEvent> = vec!();
     while let Some(raw_event) = self.manager.get_event() {
       match raw_event {
@@ -257,12 +255,10 @@ impl InputReader for MultiInputReader {
           }
         }
         */
-        _ => return Err(
-          format!("{:?} is currently an unsupported multiinput event type.", raw_event)
-        )
+        _ => ()
       }
     }
-    return Ok(events);
+    return events;
   }
 
   fn is_connected(&mut self, gamepad_id: &usize) -> bool {

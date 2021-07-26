@@ -37,7 +37,7 @@ pub struct Client {
   sock: UdpSocket,
   server_ip: String,
 
-  input_reader: Box<dyn InputReader>,
+  input_reader: GilrsInputReader,
   input_map: HashMap<usize, usize>,
 
   rawinput_reader: Option<Box<dyn InputReader>>,
@@ -68,7 +68,7 @@ impl Client {
    */
   pub fn new(
     config: Config,
-    input_reader: Box<dyn InputReader>, rawinput_reader: Option<Box<dyn InputReader>>
+    input_reader: GilrsInputReader, rawinput_reader: Option<Box<dyn InputReader>>
   ) -> Client {
     return Client {
       config: config,
@@ -153,20 +153,8 @@ impl Client {
   }
 
   pub fn update_pads(&mut self, rawinput: bool) -> () {
-    let input_reader: &mut Box<dyn InputReader>; 
-    if rawinput {
-      // input_reader = &mut self.rawinput_reader;
-    } else {
-      input_reader = &mut self.input_reader;
-    }
     match self.input_reader.read() {
-      Ok(events) => for event in events {
-        let input_map: &mut HashMap<usize, usize>;
-        if rawinput {
-          input_map = &mut self.rawinput_map;
-        } else {
-          input_map = &mut self.input_map;
-        }
+      events => for event in events {
         if let Some(i) = self.input_map.get(event.get_gamepad_id()) {
           if *self.pads[*i].get_gamepad_id() == Some(*event.get_gamepad_id()) {
             self.pads[*i].update(&event);
@@ -185,8 +173,7 @@ impl Client {
             }
           }
         } 
-      },
-      Err(e) => println!("{}", e)
+      }
     }
   }
 
