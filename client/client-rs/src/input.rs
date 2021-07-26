@@ -96,27 +96,25 @@ impl InputReader for GilrsInputReader {
   fn read(&mut self) -> Result<Vec<InputEvent>, String> {
     let mut events: Vec<InputEvent> = vec!();
     while let Some(gilrs::Event { id: gamepad_id, event: event_type, time: _ }) = self.gilrs.next_event() {
-      events.push(
-        match event_type {
-          gilrs::EventType::ButtonChanged(button, value, _) => {
-            InputEvent::GamepadButton(
-              gamepad_id.try_into().unwrap(),
-              self.to_button(&button).unwrap(),
-              value as f32
-            )
-          },
-          gilrs::EventType::AxisChanged(axis, value, _) => {
-            InputEvent::GamepadAxis(
-              gamepad_id.try_into().unwrap(),
-              self.to_axis(&axis).unwrap(),
-              value as f32
-            )
-          },
-          _ => return Err(
-            format!("{:?} is currently an unsupported Gilrs event type.", event_type)
-          )
-        }
-      );
+      match event_type {
+        gilrs::EventType::ButtonChanged(button, value, _) => {
+          events.push(InputEvent::GamepadButton(
+            gamepad_id.try_into().unwrap(),
+            self.to_button(&button).unwrap(),
+            value as f32
+          ))
+        },
+        gilrs::EventType::AxisChanged(axis, value, _) => {
+          events.push(InputEvent::GamepadAxis(
+            gamepad_id.try_into().unwrap(),
+            self.to_axis(&axis).unwrap(),
+            value as f32
+          ))
+        },
+        _ => return Err(
+          format!("{:?} is currently an unsupported Gilrs event type.", event_type)
+        )
+      }
     }
     return Ok(events);
   }
