@@ -625,7 +625,7 @@ while(True):
     #
     # Con Type is H | Keys are Q | Sticks are i
 #                                             magic   count
-    sock.sendto(pack("<HHHQiiiiHQiiiiHQiiiiHQiiii", 0x3276, controllerCount,
+    packed = pack("<HHHQiiiiHQiiiiHQiiiiHQiiii", 0x3276, controllerCount,
 #   p1 type  p1 keys              p1 L stick x         p1 L stick y         p1 R stick x         p1 R stick y
     conType, gamepadList[0].keys, gamepadList[0].dx_l, gamepadList[0].dy_l, gamepadList[0].dx_r, gamepadList[0].dy_r,
 #   p2 type  p2 keys              p2 L stick x         p2 L stick y         p2 R stick x         p2 R stick y
@@ -634,7 +634,8 @@ while(True):
     threeConType ,gamepadList[2].keys, gamepadList[2].dx_l, gamepadList[2].dy_l, gamepadList[2].dx_r, gamepadList[2].dy_r,
 #   p4 type  p3 keys              p4 L stick x         p4 L stick y         p4 R stick x         p4 R stick y
     fourConType ,gamepadList[3].keys, gamepadList[3].dx_l, gamepadList[3].dy_l, gamepadList[3].dx_r, gamepadList[3].dy_r
-    ),
-    server_address)
+    )
+    sock.sendto(packed, server_address)
+    print(list(packed))
     #sock.sendto(pack("<HHQiiii", 0x3276, conType, gamepadList[0].keys, -gamepadList[0].dy_l, -gamepadList[0].dx_l, gamepadList[0].dx_r, -gamepadList[0].dy_r), server_address)
     sleep(1/60)

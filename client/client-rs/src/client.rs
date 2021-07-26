@@ -1,5 +1,14 @@
-use crate::input::{SwitchPad, EmulatedPad};
-use crate::config::Config;
+use crate::{
+  config::Config,
+  input::{
+    InputButton,
+    InputEvent,
+    InputReader,
+    GilrsInputReader,
+    MultiInputReader
+  },
+  pad::{SwitchPad, EmulatedPad}
+};
 
 use gilrs::{
   Gilrs,
@@ -8,6 +17,7 @@ use gilrs::{
   Button
 };
 use std::{
+  collections::HashMap,
   net::UdpSocket,
   time
 };
@@ -26,7 +36,13 @@ pub struct Client {
   config: Config,
   sock: UdpSocket,
   server_ip: String,
-  gilrs: Gilrs,
+
+  input_reader: Box<dyn InputReader>,
+  input_map: HashMap<usize, usize>,
+
+  rawinput_reader: Option<Box<dyn InputReader>>,
+  rawinput_map: HashMap<usize, usize>,
+
   pads: Vec<EmulatedPad>,
 }
 
@@ -37,13 +53,35 @@ impl Client {
    * By default, it initializes a UDP socket, no server IP, a GilRs instance, and emulated pads
    * each with a switch pad type of None.
    */
-  pub fn new(config: Config) -> Client {
+  /**
+   * Constructs a client from a configuration.
+   *
+   * It initializes a UDP socket, no server IP, and each of the emulated pads are constructed with a
+   * type of None.
+   *
+   * However, the input readers (for both general gamepad API and RawInput support) must be passed
+   * through the constructor. This trusts that you pass in input readers that correspond with the
+   * respective APIs.
+   *
+   * HashMaps are also initialized for both input readers in order to have a O(1) lookup for gamepad
+   * ID to slots for emulated pads, instead of a O(n) lookup.
+   */
+  pub fn new(
+    config: Config,
+    input_reader: Box<dyn InputReader>, rawinput_reader: Option<Box<dyn InputReader>>
+  ) -> Client {
     return Client {
       config: config,
       // Unwrapping here might not be the best thing
       sock: UdpSocket::bind("0.0.0.0:8000").unwrap(),
       server_ip: "".to_string(),
-      gilrs: Gilrs::new().unwrap(),
+
+      input_reader: input_reader,
+      input_map: HashMap::new(),
+      
+      rawinput_reader: rawinput_reader,
+      rawinput_map: HashMap::new(),
+
       pads: c![EmulatedPad::new(), for _i in 0..4]
     }
   }
@@ -53,12 +91,19 @@ impl Client {
    * Slots are open so as long as they are not equal to None.
    * If there's no open slot, we return an error.
    */
-  fn assign_pad(&mut self, gamepad_id: &GamepadId, config_pads: &Vec<Option<SwitchPad>>) -> Result<String, String> {
+  fn assign_pad(&mut self, gamepad_id: &usize, raw_input: bool) -> Result<String, String> {
     let mut i: usize = 0;
     for pad in &mut self.pads {
-      if !pad.is_connected(&mut self.gilrs) {
-        match config_pads[i] {
+      if pad.get_gamepad_id().is_none() {
+      // if !self.input_reader.is_connected(pad.get_gamepad_id()) {
+      // || !self.rawinput_reader.is_connected(gamepad_id) {
+        match self.config.pads_to_vec()[i] {
           Some(switch_pad) => {
+            if raw_input {
+              self.rawinput_map.insert(*gamepad_id, i);
+            } else {
+              self.input_map.insert(*gamepad_id, i);
+            }
             pad.connect(gamepad_id, switch_pad);
             return Ok(format!("Gamepad (id: {}) connected to slot {}.", &gamepad_id, i + 1));
           },
@@ -100,32 +145,48 @@ impl Client {
    * 2. I'm not sure if Rust allows you to dynamically adjust the time interval/tickrate, but in
    *    theory, this should be possible; check main() for this.
    */
-  pub fn update_pads(&mut self) -> () {
-    // It's possible this could bottleneck since it's all single-threaded, but I haven't encountered
-    // any issues yet.
-    while let Some(Event { id: gamepad_id, event, time: _ }) = self.gilrs.next_event() {
-      let mut gamepad_mapped: bool = false;
-      // Here, we find if the current gamepad is assigned to any emulated one.
-      for pad in &mut self.pads {
-        if pad.is_connected(&mut self.gilrs)
-        && pad.get_gamepad_id().unwrap() == gamepad_id {
-          gamepad_mapped = true;
-          pad.update(&event);
-          break;
+  pub fn update_all_pads(&mut self) -> () {
+    self.update_pads(false);
+    if self.config.get_rawinput_fallback() {
+      self.update_pads(true);
+    }
+  }
+
+  pub fn update_pads(&mut self, rawinput: bool) -> () {
+    let input_reader: &mut Box<dyn InputReader>; 
+    if rawinput {
+      // input_reader = &mut self.rawinput_reader;
+    } else {
+      input_reader = &mut self.input_reader;
+    }
+    match self.input_reader.read() {
+      Ok(events) => for event in events {
+        let input_map: &mut HashMap<usize, usize>;
+        if rawinput {
+          input_map = &mut self.rawinput_map;
+        } else {
+          input_map = &mut self.input_map;
         }
-      }
-      // If it isn't and they pressed both triggers, attempt to assign them to one.
-      if !gamepad_mapped {
-        if let Some(gamepad) = Some(gamepad_id).map(|id| self.gilrs.gamepad(id)) {
-          if gamepad.is_pressed(Button::LeftTrigger2)
-          && gamepad.is_pressed(Button::RightTrigger2) {
-            match self.assign_pad(&gamepad_id, &(self.config.to_vec())) {
-              Err(e) => println!("{}", e),
-              Ok(msg) => println!("{}", msg)
+        if let Some(i) = self.input_map.get(event.get_gamepad_id()) {
+          if *self.pads[*i].get_gamepad_id() == Some(*event.get_gamepad_id()) {
+            self.pads[*i].update(&event);
+            break;
+          }
+        } else {
+          if let InputEvent::GamepadButton(gamepad_id, button, value) = event {
+            // This used to check for both triggers, but multiinput doesn't have an is_pressed()
+            // method of any kind, I think. Either way, I changed it so you just have to press your
+            // controller's equivalent of the start button. 
+            if button == InputButton::Start && value == 1.0 {
+              match self.assign_pad(&gamepad_id, rawinput) {
+                Err(e) => println!("{}", e),
+                Ok(msg) => println!("{}", msg)
+              }
             }
           }
         } 
-      }
+      },
+      Err(e) => println!("{}", e)
     }
   }
 
@@ -133,7 +194,8 @@ impl Client {
   // Like update_pads(), this should be called at a fixed time interval too.
   pub fn update_server(&self) -> Result<(), String> {
     match self.sock.send_to(
-      &PackedData::new(&self.pads, self.get_connected()).to_bytes(),
+      &PackedData::new(&self.pads, 4).to_bytes(),
+      // &PackedData::new(&self.pads, self.get_connected()).to_bytes(),
       format!("{}:8000", self.server_ip)
     ) {
       Err(e) => return Err(
@@ -185,15 +247,19 @@ impl Client {
   }
 
   // A method that returns the number of pads connected to this client.
+  /*
   fn get_connected(&self) -> i8 {
     let mut connected: i8 = 0;
     for pad in &self.pads {
-      if pad.is_connected(&self.gilrs) {
-        connected = connected + 1;
+      if let Some(gamepad_id) = pad.get_gamepad_id() {
+        if self.input_reader.is_connected(&gamepad_id) {
+          connected = connected + 1;
+        }
       }
     }
     return connected;
   }
+  */
 }
 
 /**

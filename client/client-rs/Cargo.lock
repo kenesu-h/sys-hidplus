@@ -78,6 +78,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "client-rs"
+version = "1.0.0"
+dependencies = [
+ "clap",
+ "confy",
+ "crossbeam-channel",
+ "ctrlc",
+ "cute",
+ "gilrs",
+ "multiinput",
+ "serde",
+ "structure",
+]
+
+[[package]]
 name = "confy"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -279,6 +294,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86dd2487cdfea56def77b88438a2c915fb45113c5319bfe7e14306ca4cd0b0e1"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "multiinput"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53f15c51cba0cc1234ace7ee6848df669a6da0d6a8bfc5fccd4a3f376a136e2f"
+dependencies = [
+ "winapi",
 ]
 
 [[package]]
@@ -522,20 +546,6 @@ dependencies = [
  "proc-macro2",
  "quote 1.0.9",
  "unicode-xid",
-]
-
-[[package]]
-name = "sys-hidplus-client-rs"
-version = "1.0.0"
-dependencies = [
- "clap",
- "confy",
- "crossbeam-channel",
- "ctrlc",
- "cute",
- "gilrs",
- "serde",
- "structure",
 ]
 
 [[package]]

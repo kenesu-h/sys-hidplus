@@ -1,288 +1,273 @@
 use gilrs::{
   Gilrs,
-  EventType,
-  GamepadId,
-  Axis,
-  Button
 };
-use serde::{Serialize, Deserialize};
+use std::convert::TryInto;
 
-// An enum representing the different Switch controllers that can be emulated.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub enum SwitchPad {
-  ProController,
-
-  // See comment in SwitchPad::value()
-  JoyConLSide,
-  JoyConRSide,
-
-  /* TO BE ADDED:
-  JoyConLR,
-  JoyConL,
-  JoyConR
-  */
+#[derive(PartialEq, Debug)]
+pub enum InputButton {
+  North,
+  South,
+  East,
+  West,
+  LeftBumper,
+  LeftTrigger,
+  RightBumper,
+  RightTrigger,
+  Start,
+  Select,
+  DPadUp,
+  DPadDown,
+  DPadLeft,
+  DPadRight
 }
 
-impl SwitchPad {
-  // Returns the value of this Switch pad.
-  pub fn value(&self) -> i8 {
-    match self {
-      Self::ProController => return 1,
+#[derive(Debug)]
+pub enum InputAxis {
+  LeftX,
+  LeftY,
+  RightX,
+  RightY
+}
 
-      /*
-      Using RednaxelaNnamtra's sysmodule build, these do not work, or at least one of them.
-      JoyConLSide is connected as a single left joy-con (expected to be paired with a right one),
-      and is NOT sideways. This prevents it from being usable since you can't use the d-pad
-      buttons as your four face buttons; they act as normal d-pad buttons due to them thinking
-      they should be paired with a right joy-con. I haven't tested right sideways joy-cons,
-      but I suspect it suffers from the same problem.
+#[derive(Debug)]
+pub enum InputEvent {
+  GamepadButton(usize, InputButton, f32),
+  GamepadAxis(usize, InputAxis, f32)
+}
 
-      I have no clue if this is because of RednaxelaNnamtra's build (which uses an updated version
-      of libnx), or if the server-side of things didn't handle joy-cons properly, but judging
-      from the original thread, joy-cons worked properly in the past and a libnx update broke them.
-      Assuming this is true:
-
-      TODO: Update the input server to make individual joy-cons sideways rather than "paired".
-      */
-      Self::JoyConLSide => return 2,
-      Self::JoyConRSide => return 3,
-
-      /* TO BE ADDED:
-      Self::JoyConLR => return 4,
-      Self::JoyConL => return 5,
-      Self::JoyConR => return 6
-      */
+impl InputEvent {
+  pub fn get_gamepad_id(&self) -> &usize {
+    return match self {
+      Self::GamepadButton(gamepad_id, _, _) => gamepad_id,
+      Self::GamepadAxis(gamepad_id, _, _) => gamepad_id
     }
   }
 }
 
-// An enum representing all the different buttons on a Switch controller.
-// TODO: What about the home button?
-pub enum SwitchButton {
-  A,
-  B,
-  X,
-  Y,
-  LST,
-  RST,
-  L,
-  R,
-  ZL,
-  ZR,
-  Plus,
-  Minus,
-  DL,
-  DU,
-  DR,
-  DD,
-  LL,
-  LU,
-  LR,
-  LD,
-  RL,
-  RU,
-  RR,
-  RD,
-  SLL,
-  SRL,
-  SLR,
-  SRR
+pub trait InputReader {
+  fn read(&mut self) -> Result<Vec<InputEvent>, String>;
+
+  fn is_connected(&mut self, gamepad_id: &usize) -> bool;
 }
 
-impl SwitchButton {
-  // Returns the bit corresponding to this button.
-  pub fn value(&self) -> i32 {
-    // TODO: What about the home button?
-    match self {
-      Self::A => return 1,
-      Self::B => return 1 << 1,
-      Self::X => return 1 << 2,
-      Self::Y => return 1 << 3,
-      Self::LST => return 1 << 4,
-      Self::RST => return 1 << 5,
-      Self::L => return 1 << 6,
-      Self::R => return 1 << 7,
-      Self::ZL => return 1 << 8,
-      Self::ZR => return 1 << 9,
-      Self::Plus => return 1 << 10,
-      Self::Minus => return 1 << 11,
-      Self::DL => return 1 << 12,
-      Self::DU => return 1 << 13,
-      Self::DR => return 1 << 14,
-      Self::DD => return 1 << 15,
-      Self::LL => return 1 << 16,
-      Self::LU => return 1 << 17,
-      Self::LR => return 1 << 18,
-      Self::LD => return 1 << 19,
-      Self::RL => return 1 << 20,
-      Self::RU => return 1 << 21,
-      Self::RR => return 1 << 22,
-      Self::RD => return 1 << 23,
-      Self::SLL => return 1 << 24,
-      Self::SRL => return 1 << 25,
-      Self::SLR => return 1 << 26,
-      Self::SRR => return 1 << 27
+pub struct GilrsInputReader {
+  gilrs: Gilrs
+}
+
+impl GilrsInputReader {
+  pub fn new() -> GilrsInputReader {
+    return GilrsInputReader {
+      gilrs: Gilrs::new().unwrap()
     }
   }
 
-  // Maps a GilRs button to a Switch button depending on the specified pad type.
-  pub fn map_button(button: &Button, switch_pad: &SwitchPad) -> Result<SwitchButton, String> {
-    match button {
-      Button::DPadUp => Ok(Self::DU),
-      Button::DPadRight => Ok(Self::DR),
-      Button::DPadDown => Ok(Self::DD),
-      Button::DPadLeft => Ok(Self::DL),
-      
-      Button::LeftTrigger => Ok(Self::L),
-      Button::RightTrigger => Ok(Self::R),
-      Button::LeftTrigger2 => Ok(Self::ZL),
-      Button::RightTrigger2 => Ok(Self::ZR),
+  fn to_button(&self, button: &gilrs::Button) -> Result<InputButton, String> {
+    return match button {
+      gilrs::Button::South => Ok(InputButton::South),
+      gilrs::Button::East => Ok(InputButton::East),
+      gilrs::Button::North => Ok(InputButton::North),
+      gilrs::Button::West => Ok(InputButton::West),
+      gilrs::Button::LeftTrigger => Ok(InputButton::LeftBumper),
+      gilrs::Button::LeftTrigger2 => Ok(InputButton::LeftTrigger),
+      gilrs::Button::RightTrigger => Ok(InputButton::RightBumper),
+      gilrs::Button::RightTrigger2 => Ok(InputButton::RightTrigger),
+      gilrs::Button::Start => Ok(InputButton::Start),
+      gilrs::Button::Select => Ok(InputButton::Select),
+      gilrs::Button::DPadUp => Ok(InputButton::DPadUp),
+      gilrs::Button::DPadDown => Ok(InputButton::DPadDown),
+      gilrs::Button::DPadLeft => Ok(InputButton::DPadLeft),
+      gilrs::Button::DPadRight => Ok(InputButton::DPadRight),
+      _ => Err(format!("{:?} is currently an unmapped GilRs button.", button))
+    }
+  }
 
-      Button::Start => Ok(Self::Plus),
-      Button::Select => Ok(Self::Minus),
-      
-      Button::North => match switch_pad {
-        SwitchPad::ProController => return Ok(Self::X),
-        SwitchPad::JoyConLSide => return Ok(Self::DR),
-        SwitchPad::JoyConRSide => return Ok(Self::Y)
-      },
-      Button::East => match switch_pad {
-        SwitchPad::ProController => return Ok(Self::A),
-        SwitchPad::JoyConLSide => return Ok(Self::DD),
-        SwitchPad::JoyConRSide => return Ok(Self::X)
-      },
-      Button::South => match switch_pad {
-        SwitchPad::ProController => return Ok(Self::B),
-        SwitchPad::JoyConLSide => return Ok(Self::DL),
-        SwitchPad::JoyConRSide => return Ok(Self::A)
-      },
-      Button::West => match switch_pad {
-        SwitchPad::ProController => return Ok(Self::Y),
-        SwitchPad::JoyConLSide => return Ok(Self::DU),
-        SwitchPad::JoyConRSide => return Ok(Self::B)
-      },
-      _ => Err(format!("{:?} is currently unmapped.", button))
+  fn to_axis(&self, axis: &gilrs::Axis) -> Result<InputAxis, String> {
+    return match axis {
+      gilrs::Axis::LeftStickX => Ok(InputAxis::LeftX),
+      gilrs::Axis::LeftStickY => Ok(InputAxis::LeftY),
+      gilrs::Axis::RightStickX => Ok(InputAxis::RightX),
+      gilrs::Axis::RightStickY => Ok(InputAxis::RightY),
+      _ => Err(format!("{:?} is currently an unmapped GilRs axis.", axis))
     }
   }
 }
 
-/**
- * A struct representing an emulated Switch controller.
- * 
- * Emulated pads MUST contain:
- * - An integer representing the buttons pressed.
- * - Two tuples representing the states of the left and right analog sticks respectively.
- * 
- * Optionally they can have a Switch pad type and a reference to their respective gamepad, since
- * it's entirely possible for a pad to be initialized, but not connected to anything.
- */
-pub struct EmulatedPad {
-  gamepad_id: Option<GamepadId>,
-  switch_pad: Option<SwitchPad>,
-  keyout: i32,
-  left: (i32, i32),
-  right: (i32, i32)
-}
-
-impl EmulatedPad {
-  // Constructs an emulated pad that is in a neutral state and isn't connected to anything.
-  pub fn new() -> EmulatedPad {
-    return EmulatedPad {
-      gamepad_id: None,
-      switch_pad: None,
-      keyout: 0,
-      left: (0, 0),
-      right: (0, 0)
+impl InputReader for GilrsInputReader {
+  fn read(&mut self) -> Result<Vec<InputEvent>, String> {
+    let mut events: Vec<InputEvent> = vec!();
+    while let Some(gilrs::Event { id: gamepad_id, event: event_type, time: _ }) = self.gilrs.next_event() {
+      events.push(
+        match event_type {
+          gilrs::EventType::ButtonChanged(button, value, _) => {
+            InputEvent::GamepadButton(
+              gamepad_id.try_into().unwrap(),
+              self.to_button(&button).unwrap(),
+              value as f32
+            )
+          },
+          gilrs::EventType::AxisChanged(axis, value, _) => {
+            InputEvent::GamepadAxis(
+              gamepad_id.try_into().unwrap(),
+              self.to_axis(&axis).unwrap(),
+              value as f32
+            )
+          },
+          _ => return Err(
+            format!("{:?} is currently an unsupported Gilrs event type.", event_type)
+          )
+        }
+      );
     }
+    return Ok(events);
   }
 
-  pub fn get_gamepad_id(&self) -> &Option<GamepadId> {
-    return &self.gamepad_id;
-  }
+  // The O(n) nature of this method makes its usage in client.rs O(n^2). Not great.
+  // Granted, this is only done when someone wants to assign a controller, which means that its
+  // usage isn't O(n^2) a large majority of the time. I still want to optimize this if we can,
+  // though.
 
-  pub fn get_switch_pad(&self) -> &Option<SwitchPad> {
-    return &self.switch_pad;
-  }
-
-  pub fn get_keyout(&self) -> &i32 {
-    return &self.keyout;
-  }
-
-  pub fn get_left(&self) -> &(i32, i32) {
-    return &self.left;
-  }
-
-  pub fn get_right(&self) -> &(i32, i32) {
-    return &self.right;
-  }
-
-  pub fn connect(&mut self, gamepad_id: &GamepadId, switch_pad: SwitchPad) -> () {
-    self.gamepad_id = Some(*gamepad_id);
-    self.switch_pad = Some(switch_pad);
-  }
-
-  // TODO: Use this to "disconnect" the pad when it's been disconnected by the Switch?
-  // This pad will still be considered "connected" though, so you'll have to change the logic
-  // surrounding that (like in self.is_connected()) to switch this back to a useable state.
-  // Actually, this might be better off done in the client rather than here in the emulated pad.
-  pub fn soft_disconnect(&mut self) -> () {
-    self.switch_pad = None;
-  }
-
-  // Returns whether this pad is connected by checking if its gamepad id is in GilRs' list of
-  // connected gamepads.
-  pub fn is_connected(&self, gilrs: &Gilrs) -> bool {
-    match self.gamepad_id.map(|id| gilrs.gamepad(id)) {
-      Some(_) => return true,
-      None => return false
-    }
-  }
-
-  // Attempts to update this pad using a GilRs event. Events are passed from the client and/or a
-  // GilRs instance.
-  pub fn update(&mut self, event: &EventType) -> () {
-    match event {
-      EventType::ButtonChanged(button, value, _) => self.update_keyout(button, value),
-      EventType::AxisChanged(axis, value, _) => self.update_axis(axis, value),
-      _ => ()
-    }
-  }
-
-  // Attempt to update the keyout for a button and its corresponding value.
-  pub fn update_keyout(&mut self, button: &Button, value: &f32) -> () {
-    if self.switch_pad.is_some() {
-      match &SwitchButton::map_button(
-        button,
-        &self.switch_pad.as_ref().unwrap()
-      ) {
-        Ok(switch_button) => self.set_del_bit(
-          &switch_button.value(),
-          &(*value as i32)
-        ),
-        Err(_) => ()
+  // This could possibly be more efficient if we could turn a usize into a GamepadId, but we can't.
+  fn is_connected(&mut self, gamepad_id: &usize) -> bool {
+    for (id, _) in self.gilrs.gamepads() {
+      if *gamepad_id == id.try_into().unwrap() {
+        return true;
       }
     }
+    return false;
   }
+}
 
-  // Attempt to update the stick state for an axis and its corresponding value.
-  pub fn update_axis(&mut self, axis: &Axis, value: &f32) -> () {
-    let converted: i32 = (*value * 32767.0) as i32;
-    match axis {
-      Axis::LeftStickX => self.left.0 = converted,
-      Axis::LeftStickY => self.left.1 = converted,
-      Axis::RightStickX => self.right.0 = converted,
-      Axis::RightStickY => self.right.1 = converted,
-      _ => ()
+pub struct MultiInputReader {
+  manager: multiinput::RawInputManager
+}
+
+impl MultiInputReader {
+  pub fn new() -> MultiInputReader {
+    let mut manager: multiinput::RawInputManager = multiinput::RawInputManager::new().unwrap();
+    manager.register_devices(
+      multiinput::DeviceType::Joysticks(
+        // This was initially true, but it was way too hard to get controller types.
+        multiinput::XInputInclude::False
+      )
+    );
+    return MultiInputReader {
+      manager: manager
+    }
+  }
+  
+  fn to_button(&self, button: &usize) -> Result<InputButton, String> {
+    return match button {
+      0 => Ok(InputButton::West),
+      1 => Ok(InputButton::South),
+      2 => Ok(InputButton::East),
+      3 => Ok(InputButton::North),
+      4 => Ok(InputButton::LeftBumper),
+      5 => Ok(InputButton::RightBumper),
+      6 => Ok(InputButton::LeftTrigger),
+      7 => Ok(InputButton::RightTrigger),
+      8 => Ok(InputButton::Select),
+      9 => Ok(InputButton::Start),
+      _ => Err(format!("{:?} is currently an unmapped multiinput button.", button))
     }
   }
 
-  // Updates the keyout using a bitwise OR if an input value isn't 0, otherwise a bitwise AND using
-  // the complement.
-  pub fn set_del_bit(&mut self, bit: &i32, value: &i32) -> () {
-    if value != &0 {
-      self.keyout = self.keyout | bit;
-    } else {
-      self.keyout = self.keyout & !bit;
+  fn to_button_value(&self, state: &multiinput::State) -> f32 {
+    return match state {
+      multiinput::State::Pressed => 1.0,
+      multiinput::State::Released => 0.0
     }
+  }
+
+  fn to_axis(&self, axis: &multiinput::Axis) -> Result<InputAxis, String> {
+    return match axis {
+      multiinput::Axis::X => Ok(InputAxis::LeftX),
+      multiinput::Axis::Y => Ok(InputAxis::LeftY),
+      multiinput::Axis::RX => Ok(InputAxis::RightX),
+      multiinput::Axis::RY => Ok(InputAxis::RightY),
+      _ => Err(format!("{:?} is currently an unmapped multiinput axis.", axis))
+    }
+  }
+
+  fn to_dpad(&self, hat_switch: &multiinput::HatSwitch) -> Vec<(InputButton, f32)> {
+    return match hat_switch {
+      multiinput::HatSwitch::Center => vec!(),
+      multiinput::HatSwitch::Up => vec!((InputButton::DPadUp, 1.0)),
+      multiinput::HatSwitch::UpRight => vec!(
+        (InputButton::DPadUp, 1.0),
+        (InputButton::DPadRight, 1.0)
+      ),
+      multiinput::HatSwitch::Right => vec!((InputButton::DPadRight, 1.0)),
+      multiinput::HatSwitch::DownRight => vec!(
+        (InputButton::DPadDown, 1.0),
+        (InputButton::DPadRight, 1.0)
+      ),
+      multiinput::HatSwitch::Down => vec!((InputButton::DPadDown, 1.0)),
+      multiinput::HatSwitch::DownLeft => vec!(
+        (InputButton::DPadDown, 1.0),
+        (InputButton::DPadLeft, 1.0)
+      ),
+      multiinput::HatSwitch::Left => vec!((InputButton::DPadLeft, 1.0)),
+      multiinput::HatSwitch::UpLeft => vec!(
+        (InputButton::DPadUp, 1.0),
+        (InputButton::DPadLeft, 1.0)
+      )
+    }
+  }
+}
+
+impl InputReader for MultiInputReader {
+  fn read(&mut self) -> Result<Vec<InputEvent>, String> {
+    let mut events: Vec<InputEvent> = vec!();
+    while let Some(raw_event) = self.manager.get_event() {
+      match raw_event {
+        multiinput::event::RawEvent::JoystickButtonEvent(device_id, button, state) => {
+          match self.to_button(&button) {
+            Ok(converted) => events.push(
+              InputEvent::GamepadButton(
+                device_id,
+                converted,
+                self.to_button_value(&state)
+              )
+            ),
+            Err(e) => println!("{}", e)
+          }
+        },
+        multiinput::event::RawEvent::JoystickAxisEvent(device_id, axis, value) => {
+          match self.to_axis(&axis) {
+            Ok(converted) => events.push(
+              InputEvent::GamepadAxis(
+                device_id,
+                converted,
+                value as f32
+              )
+            ),
+            Err(_) => ()
+          }
+        },
+        /* Fuck dpad inputs, do them later.
+        multiinput::event::RawEvent::JoystickHatSwitchEvent(device_id, hat_switch) => {
+          let pairs: Vec<(InputButton, f32)> = self.to_dpad(&hat_switch);
+          // I'd consider this O(n^2), but the max size of pairs will only ever be 2.
+          for (button, value) in pairs {
+            events.push(
+              InputEvent::GamepadButton(
+                device_id,
+                button,
+                value
+              )
+            )
+          }
+        }
+        */
+        _ => return Err(
+          format!("{:?} is currently an unsupported multiinput event type.", raw_event)
+        )
+      }
+    }
+    return Ok(events);
+  }
+
+  fn is_connected(&mut self, gamepad_id: &usize) -> bool {
+    return self.manager.get_joystick_state(*gamepad_id).is_some();
   }
 }

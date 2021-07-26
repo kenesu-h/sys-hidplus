@@ -1,10 +1,15 @@
 pub mod client;
 pub mod config;
 pub mod input;
+pub mod pad;
 
 use crate::{
   client::Client,
-  config::Config
+  config::Config,
+  input::{
+    GilrsInputReader,
+    MultiInputReader
+  },
 };
 use clap::{Arg, App, ArgMatches};
 use crossbeam_channel::{bounded, tick, Receiver, select};
@@ -42,7 +47,13 @@ fn main() -> Result<(), ctrlc::Error> {
   let config: Config = confy::load_path("./config.toml")
     .expect("Expected a config to be generated from a file.");
 
-  let mut client: Client = Client::new(config);
+  // TODO: Change later, we should be checking for the current OS before deciding on an input reader.
+  let mut client: Client = Client::new(
+    config,
+    Box::new(GilrsInputReader::new()),
+    // Some(Box::new(MultiInputReader::new())),
+    None
+  );
   client.set_server_ip(server_ip);
 
   // Everything below here is pretty much thanks to the following link:
@@ -56,7 +67,7 @@ fn main() -> Result<(), ctrlc::Error> {
   loop {
     select! {
       recv(ticks) -> _ => {
-        client.update_pads();
+        client.update_all_pads();
         match client.update_server() {
           Err(e) => {
             println!("{}", e);
