@@ -3,18 +3,9 @@ use crate::{
   input::{
     InputButton,
     InputEvent,
-    InputReader,
-    GilrsInputReader,
-    MultiInputReader
+    InputReader
   },
   pad::{SwitchPad, EmulatedPad}
-};
-
-use gilrs::{
-  Gilrs,
-  Event,
-  GamepadId,
-  Button
 };
 use std::{
   collections::HashMap,
@@ -91,21 +82,30 @@ impl Client {
    * Slots are open so as long as they are not equal to None.
    * If there's no open slot, we return an error.
    */
-  fn assign_pad(&mut self, gamepad_id: &usize, raw_input: bool) -> Result<String, String> {
+  fn assign_pad(&mut self, gamepad_id: &usize, rawinput: bool) -> Result<String, String> {
     let mut i: usize = 0;
     for pad in &mut self.pads {
-      if pad.get_gamepad_id().is_none() {
-      // if !self.input_reader.is_connected(pad.get_gamepad_id()) {
-      // || !self.rawinput_reader.is_connected(gamepad_id) {
+      // There has to be a way to make this neater.
+      if pad.get_gamepad_id().is_none()
+      || (pad.get_gamepad_id().is_some()
+          && (!self.input_reader.is_connected(&pad.get_gamepad_id().unwrap())
+              || !self.rawinput_reader.is_connected(&pad.get_gamepad_id().unwrap()))) {
         match self.config.pads_to_vec()[i] {
           Some(switch_pad) => {
-            if raw_input {
+            if rawinput {
               self.rawinput_map.insert(*gamepad_id, i);
             } else {
               self.input_map.insert(*gamepad_id, i);
             }
             pad.connect(gamepad_id, switch_pad);
-            return Ok(format!("Gamepad (id: {}) connected to slot {}.", &gamepad_id, i + 1));
+            return Ok(
+              format!(
+                "Gamepad (id: {}) connected to slot {}. RawInput: {}",
+                &gamepad_id,
+                i + 1,
+                rawinput
+              )
+            );
           },
           None => ()
         }
@@ -153,13 +153,13 @@ impl Client {
   }
 
   pub fn update_pads(&mut self, rawinput: bool) -> () {
-    let input_reader: &mut Box<dyn InputReader>;
+    let events: Vec<InputEvent>;
     if rawinput {
-      input_reader = &mut self.rawinput_reader;
+      events = self.rawinput_reader.read();
     } else {
-      input_reader = &mut self.input_reader;
+      events = self.input_reader.read();
     }
-    for event in input_reader.read() {
+    for event in events {
       let input_map: &HashMap<usize, usize>;
       if rawinput {
         input_map = &self.rawinput_map;

@@ -268,7 +268,6 @@ impl EmulatedPad {
       InputAxis::RightX => self.right.0 = converted,
       InputAxis::RightY => self.right.1 = converted
     }
-    // println!("{:?}", self.left);
   }
 
   // Updates the keyout using a bitwise OR if an input value isn't 0, otherwise a bitwise AND using

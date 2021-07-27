@@ -2,7 +2,6 @@ use gilrs::{
   Gilrs,
 };
 use multiinput::RawEvent;
-use std::sync::mpsc::TryIter;
 use std::convert::TryInto;
 
 #[derive(PartialEq, Debug)]
@@ -144,11 +143,12 @@ impl MultiInputReader {
     let mut manager: multiinput::RawInputManager = multiinput::RawInputManager::new().unwrap();
     manager.register_devices(
       multiinput::DeviceType::Joysticks(
-        // This was initially true, but it was way too hard to get controller types.
+        /* This was initially true, but XInput controller support was poor and there was no way to
+         * return the type of a controller.
+         */
         multiinput::XInputInclude::False
       )
     );
-    println!("{:?}", manager.get_device_list());
     return MultiInputReader {
       manager: manager
     }
@@ -198,27 +198,60 @@ impl MultiInputReader {
 
   fn to_dpad(&self, hat_switch: &multiinput::HatSwitch) -> Vec<(InputButton, f32)> {
     return match hat_switch {
-      multiinput::HatSwitch::Center => vec!(),
-      multiinput::HatSwitch::Up => vec!((InputButton::DPadUp, 1.0)),
+      multiinput::HatSwitch::Center => vec!(
+        (InputButton::DPadUp, 0.0),
+        (InputButton::DPadDown, 0.0),
+        (InputButton::DPadLeft, 0.0),
+        (InputButton::DPadRight, 0.0)
+      ),
+      multiinput::HatSwitch::Up => vec!(
+        (InputButton::DPadUp, 1.0),
+        (InputButton::DPadDown, 0.0),
+        (InputButton::DPadLeft, 0.0),
+        (InputButton::DPadRight, 0.0)
+      ),
       multiinput::HatSwitch::UpRight => vec!(
         (InputButton::DPadUp, 1.0),
+        (InputButton::DPadDown, 0.0),
+        (InputButton::DPadLeft, 0.0),
         (InputButton::DPadRight, 1.0)
       ),
-      multiinput::HatSwitch::Right => vec!((InputButton::DPadRight, 1.0)),
+      multiinput::HatSwitch::Right => vec!(
+        (InputButton::DPadUp, 0.0),
+        (InputButton::DPadDown, 0.0),
+        (InputButton::DPadLeft, 0.0),
+        (InputButton::DPadRight, 1.0)
+      ),
       multiinput::HatSwitch::DownRight => vec!(
+        (InputButton::DPadUp, 0.0),
         (InputButton::DPadDown, 1.0),
+        (InputButton::DPadLeft, 0.0),
         (InputButton::DPadRight, 1.0)
       ),
-      multiinput::HatSwitch::Down => vec!((InputButton::DPadDown, 1.0)),
-      multiinput::HatSwitch::DownLeft => vec!(
+      multiinput::HatSwitch::Down => vec!(
+        (InputButton::DPadUp, 0.0),
         (InputButton::DPadDown, 1.0),
-        (InputButton::DPadLeft, 1.0)
+        (InputButton::DPadLeft, 0.0),
+        (InputButton::DPadRight, 0.0)
       ),
-      multiinput::HatSwitch::Left => vec!((InputButton::DPadLeft, 1.0)),
+      multiinput::HatSwitch::DownLeft => vec!(
+        (InputButton::DPadUp, 0.0),
+        (InputButton::DPadDown, 1.0),
+        (InputButton::DPadLeft, 1.0),
+        (InputButton::DPadRight, 0.0)
+      ),
+      multiinput::HatSwitch::Left => vec!(
+        (InputButton::DPadUp, 0.0),
+        (InputButton::DPadDown, 0.0),
+        (InputButton::DPadLeft, 1.0),
+        (InputButton::DPadRight, 0.0)
+      ),
       multiinput::HatSwitch::UpLeft => vec!(
         (InputButton::DPadUp, 1.0),
-        (InputButton::DPadLeft, 1.0)
-      )
+        (InputButton::DPadDown, 0.0),
+        (InputButton::DPadLeft, 1.0),
+        (InputButton::DPadRight, 0.0)
+      ),
     }
   }
 
@@ -238,10 +271,8 @@ impl MultiInputReader {
             Err(_) => ()
           }
         },
-        /* Fuck dpad inputs, do them later.
         multiinput::event::RawEvent::JoystickHatSwitchEvent(device_id, hat_switch) => {
           let pairs: Vec<(InputButton, f32)> = self.to_dpad(&hat_switch);
-          // I'd consider this O(n^2), but the max size of pairs will only ever be 2.
           for (button, value) in pairs {
             events.push(
               InputEvent::GamepadButton(
@@ -252,7 +283,6 @@ impl MultiInputReader {
             )
           }
         }
-        */
         _ => ()
       }
     }
