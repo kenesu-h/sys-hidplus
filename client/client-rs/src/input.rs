@@ -4,6 +4,7 @@ use gilrs::{
 use multiinput::RawEvent;
 use std::convert::TryInto;
 
+// An enum representing the buttons that are universally available on gamepads; I'd hope so, anyway.
 #[derive(PartialEq, Debug)]
 pub enum InputButton {
   North,
@@ -22,6 +23,7 @@ pub enum InputButton {
   DPadRight
 }
 
+// An enum representing the axes that are universally available on gamepads.
 #[derive(Debug)]
 pub enum InputAxis {
   LeftX,
@@ -30,6 +32,7 @@ pub enum InputAxis {
   RightY
 }
 
+// An enum representing the different events possible on a gamepad.
 #[derive(Debug)]
 pub enum InputEvent {
   GamepadButton(usize, InputButton, f32),
@@ -37,6 +40,7 @@ pub enum InputEvent {
 }
 
 impl InputEvent {
+  // A method that returns that the gamepad ID of this event.
   pub fn get_gamepad_id(&self) -> &usize {
     return match self {
       Self::GamepadButton(gamepad_id, _, _) => gamepad_id,
@@ -45,23 +49,38 @@ impl InputEvent {
   }
 }
 
+/**
+ * A trait representing a input reader that reads from an gamepad input library of some kind,
+ * from which an input event can be generated.
+ */
 pub trait InputReader {
+  // A method that reads from an input library's buffer and returns the buffered events.
   fn read(&mut self) -> Vec<InputEvent>;
 
+  // A method that checks the input library to verify if a gamepad of a given ID is connected.
   fn is_connected(&mut self, gamepad_id: &usize) -> bool;
 }
 
+/**
+ * A struct representing a cross-platform input reader that will read from a GilRs instance.
+ * 
+ * As of the time of documentation, GilRs does not support any other gamepad APIs on Windows other
+ * than XInput, and as a result will not support more than 4 gamepads. This has only been tested on
+ * Windows as well, but should theoretically work with Unix OS's.
+ */
 pub struct GilrsInputReader {
   gilrs: Gilrs
 }
 
 impl GilrsInputReader {
+  // Constructs a GilRs input reader with an accompanying GilRs instance.
   pub fn new() -> GilrsInputReader {
     return GilrsInputReader {
       gilrs: Gilrs::new().unwrap()
     }
   }
 
+  // A helper method to convert GilRs buttons into InputButtons.
   fn to_button(&self, button: &gilrs::Button) -> Result<InputButton, String> {
     return match button {
       gilrs::Button::South => Ok(InputButton::South),
@@ -82,6 +101,7 @@ impl GilrsInputReader {
     }
   }
 
+  // A helper method to convert GilRs axes into InputAxes.
   fn to_axis(&self, axis: &gilrs::Axis) -> Result<InputAxis, String> {
     return match axis {
       gilrs::Axis::LeftStickX => Ok(InputAxis::LeftX),
@@ -101,6 +121,7 @@ impl InputReader for GilrsInputReader {
         gilrs::EventType::ButtonChanged(button, value, _) => {
           events.push(InputEvent::GamepadButton(
             gamepad_id.try_into().unwrap(),
+            // TODO: Change this (and the axis branch) to match that of the multiinput alternative.
             self.to_button(&button).unwrap(),
             value
           ))
@@ -118,12 +139,9 @@ impl InputReader for GilrsInputReader {
     return events;
   }
 
-  // The O(n) nature of this method makes its usage in client.rs O(n^2). Not great.
-  // Granted, this is only done when someone wants to assign a controller, which means that its
-  // usage isn't O(n^2) a large majority of the time. I still want to optimize this if we can,
-  // though.
-
-  // This could possibly be more efficient if we could turn a usize into a GamepadId, but we can't.
+  /* This could possibly be more efficient if we could turn a usize into a GamepadId, but we can't.
+   * Until then, this is gonna have to be O(n).
+   */
   fn is_connected(&mut self, gamepad_id: &usize) -> bool {
     for (id, _) in self.gilrs.gamepads() {
       if *gamepad_id == id.try_into().unwrap() {
@@ -134,16 +152,31 @@ impl InputReader for GilrsInputReader {
   }
 }
 
+/**
+ * A struct representing a RawInput input reader that will read from the multiinput library using an
+ * instance of an input manager.
+ * 
+ * This input reader is ONLY meant to be used for RawInput devices, and at the time of writing this,
+ * has only been tested with DS4s (PS4 controllers). XInput support is poor right now and gamepads
+ * other than the DS4 have not been tested. Do not expect an exquisite amount of support from this.
+ */
 pub struct MultiInputReader {
   manager: multiinput::RawInputManager
 }
 
 impl MultiInputReader {
+  /**
+   * Constructs a multiinput reader with an input manager instance.
+   * 
+   * This input manager instance will not read from XInput devices or mouse & keyboard, although
+   * the options exist and may be implemented in a later update.
+   */
   pub fn new() -> MultiInputReader {
     let mut manager: multiinput::RawInputManager = multiinput::RawInputManager::new().unwrap();
     manager.register_devices(
       multiinput::DeviceType::Joysticks(
-        /* This was initially true, but XInput controller support was poor and there was no way to
+        /*
+         * This was initially true, but XInput controller support was poor and there was no way to
          * return the type of a controller.
          */
         multiinput::XInputInclude::False
@@ -181,14 +214,19 @@ impl MultiInputReader {
     return match axis {
       multiinput::Axis::X => Ok(InputAxis::LeftX),
       multiinput::Axis::Y => Ok(InputAxis::LeftY),
-      // For these, we're going to be assuming PS4 controllers are used.
-      // However, we have to invert the axis values.
       multiinput::Axis::Z => Ok(InputAxis::RightX),
       multiinput::Axis::RZ => Ok(InputAxis::RightY),
       _ => Err(format!("{:?} is currently an unmapped multiinput axis.", axis))
     }
   }
 
+  /**
+   * A method that "corrects" a value for an axis, assuming the gamepad involved is a DS4.
+   * 
+   * For some reason, the right stick uses the Z and RZ axes; Z for horizontal and RZ for
+   * vertical. Their values also happen to be inverted, unlike the left stick. We use this
+   * method to invert the value back if it happens to be Z or RZ.
+   */
   fn correct_axis_value(&self, axis: &multiinput::Axis, value: &f64) -> f32 {
     return match axis {
       multiinput::Axis::Z | multiinput::Axis::RZ => -(*value as f32),
@@ -198,6 +236,7 @@ impl MultiInputReader {
 
   fn to_dpad(&self, hat_switch: &multiinput::HatSwitch) -> Vec<(InputButton, f32)> {
     return match hat_switch {
+      // TODO: I might just make a struct for this since this is unnecessarily long.
       multiinput::HatSwitch::Center => vec!(
         (InputButton::DPadUp, 0.0),
         (InputButton::DPadDown, 0.0),
