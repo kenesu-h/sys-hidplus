@@ -50,9 +50,8 @@ fn main() -> Result<(), ctrlc::Error> {
   // TODO: Change later, we should be checking for the current OS before deciding on an input reader.
   let mut client: Client = Client::new(
     config,
-    GilrsInputReader::new(),
-    // Some(Box::new(MultiInputReader::new())),
-    None
+    Box::new(GilrsInputReader::new()),
+    Box::new(MultiInputReader::new())
   );
   client.set_server_ip(server_ip);
 

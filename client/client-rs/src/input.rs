@@ -1,6 +1,8 @@
 use gilrs::{
   Gilrs,
 };
+use multiinput::RawEvent;
+use std::sync::mpsc::TryIter;
 use std::convert::TryInto;
 
 #[derive(PartialEq, Debug)]
@@ -146,6 +148,7 @@ impl MultiInputReader {
         multiinput::XInputInclude::False
       )
     );
+    println!("{:?}", manager.get_device_list());
     return MultiInputReader {
       manager: manager
     }
@@ -209,34 +212,20 @@ impl MultiInputReader {
       )
     }
   }
-}
 
-impl InputReader for MultiInputReader {
-  fn read(&mut self) -> Vec<InputEvent> {
+  pub fn parse_buffered(&mut self, buffered: Vec<RawEvent>) -> Vec<InputEvent> {
     let mut events: Vec<InputEvent> = vec!();
-    while let Some(raw_event) = self.manager.get_event() {
-      match raw_event {
+    for event in buffered {
+      match event {
         multiinput::event::RawEvent::JoystickButtonEvent(device_id, button, state) => {
-          match self.to_button(&button) {
-            Ok(converted) => events.push(
-              InputEvent::GamepadButton(
-                device_id,
-                converted,
-                self.to_button_value(&state)
-              )
-            ),
-            Err(e) => println!("{}", e)
+          match self.to_button_event(&device_id, &button, &state) {
+            Ok(mapped_event) => events.push(mapped_event),
+            Err(_) => ()
           }
         },
         multiinput::event::RawEvent::JoystickAxisEvent(device_id, axis, value) => {
-          match self.to_axis(&axis) {
-            Ok(converted) => events.push(
-              InputEvent::GamepadAxis(
-                device_id,
-                converted,
-                value as f32
-              )
-            ),
+          match self.to_axis_event(&device_id, &axis, &value) {
+            Ok(mapped_event) => events.push(mapped_event),
             Err(_) => ()
           }
         },
@@ -259,6 +248,46 @@ impl InputReader for MultiInputReader {
       }
     }
     return events;
+  }
+
+  pub fn to_button_event(
+    &self, device_id: &usize, button: &usize, state: &multiinput::State
+  ) -> Result<InputEvent, String> {
+    return match self.to_button(button) {
+      Ok(mapped) => Ok(
+        InputEvent::GamepadButton(
+          *device_id,
+          mapped,
+          self.to_button_value(state)
+        )
+      ),
+      Err(e) => Err(e)
+    }
+  }
+
+  pub fn to_axis_event(
+    &self, device_id: &usize, axis: &multiinput::Axis, value: &f64
+  ) -> Result<InputEvent, String> {
+    return match self.to_axis(axis) {
+      Ok(mapped) => Ok(
+        InputEvent::GamepadAxis(
+          *device_id,
+          mapped,
+          *value as f32
+        )
+      ),
+      Err(e) => Err(e)
+    }
+  }
+}
+
+impl InputReader for MultiInputReader {
+  fn read(&mut self) -> Vec<InputEvent> {
+    let mut buffered: Vec<RawEvent> = vec!();
+    for event in self.manager.get_events() {
+      buffered.push(event);
+    }
+    return self.parse_buffered(buffered);
   }
 
   fn is_connected(&mut self, gamepad_id: &usize) -> bool {
