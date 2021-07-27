@@ -181,9 +181,18 @@ impl MultiInputReader {
     return match axis {
       multiinput::Axis::X => Ok(InputAxis::LeftX),
       multiinput::Axis::Y => Ok(InputAxis::LeftY),
-      multiinput::Axis::RX => Ok(InputAxis::RightX),
-      multiinput::Axis::RY => Ok(InputAxis::RightY),
+      // For these, we're going to be assuming PS4 controllers are used.
+      // However, we have to invert the axis values.
+      multiinput::Axis::Z => Ok(InputAxis::RightX),
+      multiinput::Axis::RZ => Ok(InputAxis::RightY),
       _ => Err(format!("{:?} is currently an unmapped multiinput axis.", axis))
+    }
+  }
+
+  fn correct_axis_value(&self, axis: &multiinput::Axis, value: &f64) -> f32 {
+    return match axis {
+      multiinput::Axis::Z | multiinput::Axis::RZ => -(*value as f32),
+      _ => *value as f32
     }
   }
 
@@ -273,7 +282,7 @@ impl MultiInputReader {
         InputEvent::GamepadAxis(
           *device_id,
           mapped,
-          *value as f32
+          self.correct_axis_value(axis, value)
         )
       ),
       Err(e) => Err(e)
@@ -284,8 +293,8 @@ impl MultiInputReader {
 impl InputReader for MultiInputReader {
   fn read(&mut self) -> Vec<InputEvent> {
     let mut buffered: Vec<RawEvent> = vec!();
-    for event in self.manager.get_events() {
-      buffered.push(event);
+    while let Some(event) = self.manager.get_event() {
+      buffered.push(event); 
     }
     return self.parse_buffered(buffered);
   }

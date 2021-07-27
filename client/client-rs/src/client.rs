@@ -153,67 +153,33 @@ impl Client {
   }
 
   pub fn update_pads(&mut self, rawinput: bool) -> () {
-    let events: Vec<InputEvent>;
+    let input_reader: &mut Box<dyn InputReader>;
     if rawinput {
-      events = self.rawinput_reader.read();
+      input_reader = &mut self.rawinput_reader;
     } else {
-      events = self.input_reader.read()
+      input_reader = &mut self.input_reader;
     }
-    for event in events {
-      let mut mapped: bool = false;
-      for pad in &mut self.pads {
-        if rawinput {
-          if self.rawinput_reader.is_connected(event.get_gamepad_id())
-          && pad.get_gamepad_id().is_some()
-          && pad.get_gamepad_id().unwrap() == *event.get_gamepad_id() {
-            mapped = true;
-            pad.update(&event);
-            break;
-          }
-        } else {
-          if self.input_reader.is_connected(event.get_gamepad_id())
-          && pad.get_gamepad_id().is_some()
-          && pad.get_gamepad_id().unwrap() == *event.get_gamepad_id() {
-            mapped = true;
-            pad.update(&event);
-            break;
-          }
-        }
+    for event in input_reader.read() {
+      let input_map: &HashMap<usize, usize>;
+      if rawinput {
+        input_map = &self.rawinput_map;
+      } else {
+        input_map = &self.input_map;
       }
-      if !mapped {
-        if let InputEvent::GamepadButton(gamepad_id, button, value) = event {
-          // This used to check for both triggers, but multiinput doesn't have an is_pressed()
-          // method of any kind, I think. Either way, I changed it so you just have to press your
-          // controller's equivalent of the start button. 
-          if button == InputButton::Start && value == 1.0 {
-            match self.assign_pad(&gamepad_id, rawinput) {
-              Err(e) => println!("{}", e),
-              Ok(msg) => println!("{}", msg)
-            }
-          }
-        }
-      }
-      /*
-      if let Some(i) = self.input_map.get(event.get_gamepad_id()) {
+      if let Some(i) = input_map.get(event.get_gamepad_id()) {
         if *self.pads[*i].get_gamepad_id() == Some(*event.get_gamepad_id()) {
           self.pads[*i].update(&event);
-          break;
         }
       } else {
         if let InputEvent::GamepadButton(gamepad_id, button, value) = event {
-          // This used to check for both triggers, but multiinput doesn't have an is_pressed()
-          // method of any kind, I think. Either way, I changed it so you just have to press your
-          // controller's equivalent of the start button. 
           if button == InputButton::Start && value == 1.0 {
             match self.assign_pad(&gamepad_id, rawinput) {
-              Err(e) => println!("{}", e),
-              Ok(msg) => println!("{}", msg)
+              Ok(msg) => println!("{}", msg),
+              Err(e) => println!("{}", e)
             }
           }
         }
-      } 
-      */
-    
+      }
     }
   }
 
