@@ -1,15 +1,9 @@
-use crate::input::{
+use crate::input::common::reader::{
   InputButton,
   InputAxis,
   InputEvent
 };
-use gilrs::{
-  Gilrs,
-  EventType,
-  GamepadId,
-  Axis,
-  Button
-};
+
 use serde::{Serialize, Deserialize};
 
 // An enum representing the different Switch controllers that can be emulated.
@@ -165,8 +159,7 @@ impl SwitchButton {
         SwitchPad::ProController => return Ok(Self::Y),
         SwitchPad::JoyConLSide => return Ok(Self::DU),
         SwitchPad::JoyConRSide => return Ok(Self::B)
-      },
-      _ => Err(format!("{:?} is currently unmapped.", button))
+      }
     }
   }
 }
@@ -224,14 +217,6 @@ impl EmulatedPad {
   pub fn connect(&mut self, gamepad_id: &usize, switch_pad: SwitchPad) -> () {
     self.gamepad_id = Some(*gamepad_id);
     self.switch_pad = Some(switch_pad);
-  }
-
-  // TODO: Use this to "disconnect" the pad when it's been disconnected by the Switch?
-  // This pad will still be considered "connected" though, so you'll have to change the logic
-  // surrounding that (like in self.is_connected()) to switch this back to a useable state.
-  // Actually, this might be better off done in the client rather than here in the emulated pad.
-  pub fn soft_disconnect(&mut self) -> () {
-    self.switch_pad = None;
   }
 
   // Attempts to update this pad using a GilRs event. Events are passed from the client and/or a

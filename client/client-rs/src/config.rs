@@ -1,4 +1,5 @@
-use crate::pad::SwitchPad;
+use crate::input::switch::SwitchPad;
+
 use serde::{Serialize, Deserialize};
 
 /**
