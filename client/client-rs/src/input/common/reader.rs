@@ -1,4 +1,4 @@
-// An enum representing the buttons that are universally available on gamepads; I'd hope so, anyway.
+// An enum representing the buttons that are universally available on gamepads.
 #[derive(PartialEq, Debug)]
 pub enum InputButton {
   North,
@@ -44,13 +44,19 @@ impl InputEvent {
 }
 
 /**
- * A trait representing a input reader that reads from an gamepad input library of some kind,
- * from which an input event can be generated.
+ * A trait representing a input reader that reads from an gamepad input library
+ * of some kind, from which an input event can be generated.
  */
 pub trait InputReader {
-  // A method that reads from an input library's buffer and returns the buffered events.
+  /**
+   * A method that reads from an input library's buffer and returns the buffered
+   * events.
+   */
   fn read(&mut self) -> Vec<InputEvent>;
 
-  // A method that checks the input library to verify if a gamepad of a given ID is connected.
+  /**
+   * A method that checks the input library to verify if a gamepad of a given ID
+   * is connected.
+   */
   fn is_connected(&mut self, gamepad_id: &usize) -> bool;
 }

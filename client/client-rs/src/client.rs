@@ -30,8 +30,10 @@ use std::{
  *
  * We also need these, although the reasoning behind them might be more obscure:
  * - A way to read inputs from RawInput.
- *   - This is needed for XInput-incompatible gamepads and to possibly support 4+ players.
- * - HashMaps mapping gamepad IDs to the index of their corresponding emulated gamepad.
+ *   - This is needed for XInput-incompatible gamepads and to possibly support
+ *     4+ players.
+ * - HashMaps mapping gamepad IDs to the index of their corresponding emulated
+ *   gamepad.
  *   - This allows controller updates to be O(n) as opposed to O(n^2).
  */
 pub struct Client {
@@ -50,11 +52,12 @@ pub struct Client {
 
 impl Client {
   /**
-   * Constructs a new client from a config, and two input readers respectively corresponding to
-   * general input APIs and RawInput.
+   * Constructs a new client from a config, and two input readers respectively
+   * corresponding to general input APIs and RawInput.
    *
    * The socket itself is bound to port 8000, but no server IP is specified.
-   * Empty input maps are initialized, as well as emulated gamepads with types of None.
+   * Empty input maps are initialized, as well as emulated gamepads with types
+   * of None.
    */
   pub fn new(
     config: Config,
@@ -82,8 +85,8 @@ impl Client {
   }
 
   /**
-   * A method that updates all emulated gamepads. If RawInput fallback is enabled, the client will
-   * also attempt to update RawInput gamepads.
+   * A method that updates all emulated gamepads. If RawInput fallback is
+   * enabled, the client will also attempt to update RawInput gamepads.
    */
   pub fn update_all_pads(&mut self) -> () {
     self.update_pads(false);
@@ -93,10 +96,12 @@ impl Client {
   }
 
   /**
-   * A helper method that reads events from an input reader and updates corresponding gamepads.
+   * A helper method that reads events from an input reader and updates
+   * corresponding gamepads.
    *
-   * The method will use the general gamepad API reader if RawInput fallback is disabled; otherwise,
-   * the RawInput reader. Corresponding maps will be used as well.
+   * The method will use the general gamepad API reader if RawInput fallback is
+   * disabled; otherwise, the RawInput reader. Corresponding maps will be used
+   * as well.
    *
    * This should be called at a fixed time interval alongside update_server().
    */
@@ -132,19 +137,23 @@ impl Client {
   }
 
   /**
-   * A helper method that attempts to assign the given gamepad ID and switch pad type to an open
-   * slot, while mapping said ID the corresponding index. Slots are open so as long as they are not
-   * equal to None, or if the associated controller is reported by the respective input reader as
-   * disconnected.
+   * A helper method that attempts to assign the given gamepad ID and switch pad
+   * type to an open slot, while mapping said ID the corresponding index. Slots
+   * are open so as long as they are not equal to None, or if the associated
+   * controller is reported by the respective input reader as disconnected.
    */
-  fn assign_pad(&mut self, gamepad_id: &usize, rawinput: bool) -> Result<String, String> {
+  fn assign_pad(
+    &mut self, gamepad_id: &usize, rawinput: bool
+  ) -> Result<String, String> {
     let mut i: usize = 0;
     for pad in &mut self.pads {
-      // I tried to make this easier to read, but it still doesn't seem so great.
-      if pad.get_gamepad_id().is_none()
-      || (pad.get_gamepad_id().is_some()
-          && (!self.input_reader.is_connected(&pad.get_gamepad_id().unwrap())
-              || !self.rawinput_reader.is_connected(&pad.get_gamepad_id().unwrap()))) {
+      if match pad.get_gamepad_id() {
+        Some(gamepad_id) => {
+          !self.input_reader.is_connected(gamepad_id)
+          || !self.rawinput_reader.is_connected(gamepad_id)
+        },
+        None => true
+      } {
         match self.config.pads_to_vec()[i] {
           Some(switch_pad) => {
             if rawinput {
@@ -167,19 +176,19 @@ impl Client {
       }
       i = i + 1;
     }
-    return Err("Couldn't assign gamepad since there were no slots available.".to_string());
+    return Err(
+      "Couldn't assign gamepad since there were no slots available.".to_string()
+    );
   }
 
   /**
-   * A method that sends the current emulated pad states to the Switch. Like update_pads(), this
-   * should be called at a fixed time interval.
+   * A method that sends the current emulated pad states to the Switch.
+   *
+   * Like update_pads(), this should be called at a fixed time interval.
    */
-  // A method that sends the current emulated pad states to the Switch (the input server).
-  // Like update_pads(), this should be called at a fixed time interval too.
   pub fn update_server(&self) -> Result<(), String> {
     match self.sock.send_to(
       &PackedData::new(&self.pads, 4).to_bytes(),
-      // &PackedData::new(&self.pads, self.get_connected()).to_bytes(),
       format!("{}:8000", self.server_ip)
     ) {
       Err(e) => return Err(
@@ -192,10 +201,12 @@ impl Client {
   /**
    * A method disconnects all connected gamepads.
    *
-   * This unfortunately uses a brute-force approach of disconnecting all the gamepads, but there's
-   * no other way that doesn't involve modifying the server. For now, a list of gamepads (all set to
-   * None) will be spammed over the course of 3 seconds in order for shit to somehow stick onto the
-   * wall. This hasn't failed so far, but this may change if a network happens to be unstable.
+   * This unfortunately uses a brute-force approach of disconnecting all the
+   * gamepads, but there's no other way that doesn't involve modifying the
+   * server. For now, a list of gamepads (all set to None) will be spammed over
+   * the course of 3 seconds in order for shit to somehow stick onto the wall.
+   * This hasn't failed so far, but this may change if a network happens to be
+   * unstable.
    */
   pub fn cleanup(&mut self) -> Result<String, String> {
     println!("Cleaning up connected gamepads... This will take a moment.");
@@ -217,8 +228,8 @@ impl Client {
 /**
  * A struct representing packed data to be sent to a Switch.
  * 
- * This isn't the cleanest or most dynamic thing by any means, but I wanted it to be consistent
- * with the original data structure.
+ * This isn't the cleanest or most dynamic thing by any means, but I wanted it
+ * to be consistent with the original data structure.
  */
 pub struct PackedData {
   magic: u16,

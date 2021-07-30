@@ -16,12 +16,13 @@ use multiinput::{
 };
 
 /**
- * A struct representing a RawInput input reader that will read from the multiinput library using an
- * instance of an input manager.
+ * A struct representing a RawInput input reader that will read from the
+ * multiinput library using an instance of an input manager.
  * 
- * This input reader is ONLY meant to be used for RawInput devices, and at the time of writing this,
- * has only been tested with DS4s (PS4 controllers). XInput support is poor right now and gamepads
- * other than the DS4 have not been tested. Do not expect an exquisite amount of support from this.
+ * This input reader is ONLY meant to be used for RawInput devices, and at the
+ * time of writing this, has only been tested with DS4s (PS4 controllers).
+ * XInput support is poor right now and gamepads other than the DS4 have not
+ * been tested. Do not expect an exquisite amount of support from this.
  */
 pub struct MultiInputReader {
   manager: RawInputManager
@@ -31,16 +32,17 @@ impl MultiInputReader {
   /**
    * Constructs a multiinput reader with an input manager instance.
    * 
-   * This input manager instance will not read from XInput devices or mouse & keyboard, although
-   * the options exist and may be implemented in a later update.
+   * This input manager instance will not read from XInput devices or mouse &
+   * keyboard, although the options exist and may be implemented in a later
+   * update.
    */
   pub fn new() -> MultiInputReader {
     let mut manager: RawInputManager = RawInputManager::new().unwrap();
     manager.register_devices(
       DeviceType::Joysticks(
         /*
-         * This was initially true, but XInput controller support was poor and there was no way to
-         * return the type of a controller.
+         * This was initially true, but XInput controller support was poor and
+         * there was no way to return the type of a controller.
          */
         XInputInclude::False
       )
@@ -50,20 +52,20 @@ impl MultiInputReader {
     }
   } 
 
-  // A helper method to parse a given list of buffered events into readable InputEvents.
+  // A helper method to parse a list of buffered events into InputEvents.
   fn parse_buffered(&mut self, buffered: Vec<RawEvent>) -> Vec<InputEvent> {
     let mut events: Vec<InputEvent> = vec!();
     for event in buffered {
       match event {
         RawEvent::JoystickButtonEvent(device_id, button, state) => {
           match self.to_button_event(&device_id, &button, &state) {
-            Ok(mapped_event) => events.push(mapped_event),
+            Ok(adapted) => events.push(adapted),
             Err(_) => ()
           }
         },
         RawEvent::JoystickAxisEvent(device_id, axis, value) => {
           match self.to_axis_event(&device_id, &axis, &value) {
-            Ok(mapped_event) => events.push(mapped_event),
+            Ok(adapted) => events.push(adapted),
             Err(_) => ()
           }
         },
@@ -85,7 +87,7 @@ impl MultiInputReader {
     return events;
   }
 
-  // A helper method to convert multiinput button event values into an InputEvent.
+  // A helper method to adapt multiinput button event values into an InputEvent.
   fn to_button_event(
     &self, device_id: &usize, button: &usize, state: &State
   ) -> Result<InputEvent, String> {
@@ -101,7 +103,7 @@ impl MultiInputReader {
     }
   }
 
-  // A helper method to convert multiinput axis event values into an InputEvent.
+  // A helper method to adapt multiinput axis event values into an InputEvent.
   fn to_axis_event(
     &self, device_id: &usize, axis: &Axis, value: &f64
   ) -> Result<InputEvent, String> {
@@ -118,11 +120,13 @@ impl MultiInputReader {
   }
 
   /**
-   * A method that "corrects" a value for an axis, assuming the gamepad involved is a DS4.
+   * A method that "corrects" a value for an axis, assuming the gamepad involved
+   * is a DS4.
    *
-   * For some reason, the right stick uses the Z and RZ axes; Z for horizontal and RZ for
-   * vertical. Their values also happen to be inverted, unlike the left stick. We use this
-   * method to invert the value back if it happens to be Z or RZ.
+   * For some reason, the right stick uses the Z and RZ axes; Z for horizontal
+   * and RZ for vertical. Their values also happen to be inverted, unlike the
+   * left stick. We use this method to invert the value back if it happens to be
+   * Z or RZ.
    */
   fn correct_axis_value(&self, axis: &Axis, value: &f64) -> f32 {
     return match axis {
@@ -131,7 +135,7 @@ impl MultiInputReader {
     }
   }
 
-  // A helper method to convert a button (in the form of a usize) to an InputButton.
+  // A helper method to map a button (in the form of a usize) to an InputButton.
   fn to_button(&self, button: &usize) -> Result<InputButton, String> {
     return match button {
       0 => Ok(InputButton::West),
@@ -148,7 +152,7 @@ impl MultiInputReader {
     }
   }
 
-  // A helper method to convert a button state to a value.
+  // A helper method to map a button state to a value.
   fn to_button_value(&self, state: &State) -> f32 {
     return match state {
       State::Pressed => 1.0,
@@ -156,7 +160,7 @@ impl MultiInputReader {
     }
   }
 
-  // A helper method to convert an axis to an InputAxis.
+  // A helper method to map an axis to an InputAxis.
   fn to_axis(&self, axis: &Axis) -> Result<InputAxis, String> {
     return match axis {
       Axis::X => Ok(InputAxis::LeftX),
@@ -167,7 +171,7 @@ impl MultiInputReader {
     }
   }
 
-  // A helper method to convert a hat switch to a MultiInputDPad.
+  // A helper method to adapt a hat switch to a MultiInputDPad.
   fn to_dpad(&self, hat_switch: &multiinput::HatSwitch) -> MultiInputDPad {
     return match hat_switch {
       HatSwitch::Center => MultiInputDPad::new(false, false, false, false),

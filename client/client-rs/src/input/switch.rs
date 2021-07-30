@@ -27,22 +27,16 @@ impl SwitchPad {
   pub fn value(&self) -> i8 {
     match self {
       Self::ProController => return 1,
-
       /*
-      Using RednaxelaNnamtra's sysmodule build, these do not work, or at least one of them.
-      JoyConLSide is connected as a single left joy-con (expected to be paired with a right one),
-      and is NOT sideways. This prevents it from being usable since you can't use the d-pad
-      buttons as your four face buttons; they act as normal d-pad buttons due to them thinking
-      they should be paired with a right joy-con. I haven't tested right sideways joy-cons,
-      but I suspect it suffers from the same problem.
-
-      I have no clue if this is because of RednaxelaNnamtra's build (which uses an updated version
-      of libnx), or if the server-side of things didn't handle joy-cons properly, but judging
-      from the original thread, joy-cons worked properly in the past and a libnx update broke them.
-      Assuming this is true:
-
-      TODO: Update the input server to make individual joy-cons sideways rather than "paired".
-      */
+       * These do not work, I think. JoyConLSide is connected as a single left
+       * joy-con (expected to be paired with a right one), and it NOT sideways.
+       * This prevents it from being usable since you can't use the d-pad as
+       * your four face buttons. I suspect the right sideways joy-con suffers
+       * from the same problem. No clue if this is due to RednaxelaNnamtra's
+       * build (which uses an updated version of libnx).
+       *
+       * TODO: Update the input server to fix this.
+       */
       Self::JoyConLSide => return 2,
       Self::JoyConRSide => return 3,
 
@@ -124,8 +118,13 @@ impl SwitchButton {
     }
   }
 
-  // Maps an input event button to a Switch button depending on the specified pad type.
-  pub fn map_button(button: &InputButton, switch_pad: &SwitchPad) -> Result<SwitchButton, String> {
+  /**
+   * Maps an input event button to a Switch button depending on the specified
+   * pad type.
+   */
+  pub fn map_button(
+    button: &InputButton, switch_pad: &SwitchPad
+  ) -> Result<SwitchButton, String> {
     match button {
       InputButton::DPadUp => Ok(Self::DU),
       InputButton::DPadRight => Ok(Self::DR),
@@ -169,10 +168,12 @@ impl SwitchButton {
  * 
  * Emulated pads MUST contain:
  * - An integer representing the buttons pressed.
- * - Two tuples representing the states of the left and right analog sticks respectively.
+ * - Two tuples representing the states of the left and right analog sticks
+ *   respectively.
  * 
- * Optionally they can have a Switch pad type and a reference to their respective gamepad, since
- * it's entirely possible for a pad to be initialized, but not connected to anything.
+ * Optionally they can have a Switch pad type and a reference to their
+ * respective gamepad, since it's entirely possible for a pad to be initialized,
+ * but not connected to anything.
  */
 pub struct EmulatedPad {
   gamepad_id: Option<usize>,
@@ -183,7 +184,10 @@ pub struct EmulatedPad {
 }
 
 impl EmulatedPad {
-  // Constructs an emulated pad that is in a neutral state and isn't connected to anything.
+  /**
+   * Constructs an emulated pad that is in a neutral state and isn't connected
+   * to anything.
+   */
   pub fn new() -> EmulatedPad {
     return EmulatedPad {
       gamepad_id: None,
@@ -219,17 +223,18 @@ impl EmulatedPad {
     self.switch_pad = Some(switch_pad);
   }
 
-  // Attempts to update this pad using a GilRs event. Events are passed from the client and/or a
-  // GilRs instance.
+  // Attempts to update this pad using an input event.
   pub fn update(&mut self, event: &InputEvent) -> () {
     match event {
-      InputEvent::GamepadButton(_, button, value) => self.update_keyout(button, value),
+      InputEvent::GamepadButton(_, button, value) => {
+        self.update_keyout(button, value)
+      },
       InputEvent::GamepadAxis(_, axis, value) => self.update_axis(axis, value)
     }
   }
 
-  // Attempt to update the keyout for a button and its corresponding value.
-  pub fn update_keyout(&mut self, button: &InputButton, value: &f32) -> () {
+  // A helper method to update the keyout for a button.
+  fn update_keyout(&mut self, button: &InputButton, value: &f32) -> () {
     if self.switch_pad.is_some() {
       match &SwitchButton::map_button(
         button,
@@ -244,8 +249,8 @@ impl EmulatedPad {
     }
   }
 
-  // Attempt to update the stick state for an axis and its corresponding value.
-  pub fn update_axis(&mut self, axis: &InputAxis, value: &f32) -> () {
+  // A helper method to update the stick values for an axis.
+  fn update_axis(&mut self, axis: &InputAxis, value: &f32) -> () {
     let converted: i32 = (*value * 32767.0) as i32;
     match axis {
       InputAxis::LeftX => self.left.0 = converted,
@@ -255,9 +260,11 @@ impl EmulatedPad {
     }
   }
 
-  // Updates the keyout using a bitwise OR if an input value isn't 0, otherwise a bitwise AND using
-  // the complement.
-  pub fn set_del_bit(&mut self, bit: &i32, value: &i32) -> () {
+  /**
+   * A helper method to update the keyout using a bitwise OR if an input value
+   * isn't 0, otherwise a bitwise AND using the complement.
+   */
+  fn set_del_bit(&mut self, bit: &i32, value: &i32) -> () {
     if value != &0 {
       self.keyout = self.keyout | bit;
     } else {
