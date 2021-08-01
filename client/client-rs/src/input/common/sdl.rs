@@ -10,6 +10,7 @@ use crate::input::common::reader::{
 use sdl2::{
   Sdl,
   GameControllerSubsystem,
+  JoystickSubsystem,
   EventPump,
   event::Event,
   controller::{
@@ -19,14 +20,25 @@ use sdl2::{
   },
   VideoSubsystem
 };
-
 use std::collections::HashMap;
 
+/**
+ * A struct representing a cross-platform input reader that will read from an
+ * SDL instance.
+ * 
+ * SDL so far seems to bypass the 4 XInput controller limit and supports both
+ * Xbox and PS4 controllers. Not sure how it performs cross-platform-wise, and
+ * external drivers are still needed for controllers like GameCube controllers,
+ * but this is revolutionary.
+ *
+ * _joystick and _video must be initialized in order for Xbox and controller
+ * hotplugging to be supported. I really don't know why this is.
+ */
 pub struct SdlAdapter {
   gamepads: HashMap<u32, GameController>,
-  game_controller: GameControllerSubsystem,
+  game_controller: GameControllerSubsystem, 
   event_pump: EventPump,
-  // I literally have no clue why, but you need this for hotplugging.
+  _joystick: JoystickSubsystem,
   _video: VideoSubsystem
 }
 
@@ -36,12 +48,15 @@ impl SdlAdapter {
 
     let game_controller: GameControllerSubsystem =
       sdl_context.game_controller().unwrap();
+    let joystick: JoystickSubsystem = sdl_context.joystick().unwrap();
     let event_pump: EventPump = sdl_context.event_pump().unwrap();
     let video: VideoSubsystem = sdl_context.video().unwrap();
+
     return SdlAdapter {
       gamepads: HashMap::new(),
-      game_controller: game_controller,
+      game_controller: game_controller, 
       event_pump: event_pump,
+      _joystick: joystick,
       _video: video
     }
   }
@@ -135,7 +150,7 @@ impl SdlAdapter {
       Axis::TriggerLeft => Ok(InputButton::LeftTrigger),
       Axis::TriggerRight => Ok(InputButton::RightTrigger),
       _ => Err(
-        format!("{:?} are not triggers.", axis)
+        format!("{:?} is not a trigger axis.", axis)
       )
     }
   }
@@ -148,7 +163,11 @@ impl SdlAdapter {
         InputEvent::GamepadButton(
           *which as usize,
           mapped,
-          self.to_button_value(value > &0)
+          /*
+           * For a trigger to count as pressed, we're requiring this must be
+           * pressed all the way. This MIGHT have potential issues later on.
+           */
+          self.to_button_value(value == &32767)
         )
       ),
       Err(e) => Err(e)
@@ -165,7 +184,7 @@ impl InputReader for SdlAdapter {
           // We need to store the gamepad somewhere to receive button events.
           let gamepad: GameController = self.game_controller.open(which)
             .unwrap();
-          self.gamepads.insert(which, gamepad);
+          self.gamepads.insert(gamepad.instance_id(), gamepad);
         },
         Event::ControllerDeviceRemoved { which, .. } => {
           self.gamepads.remove(&which);
@@ -202,6 +221,6 @@ impl InputReader for SdlAdapter {
   }
   
   fn is_connected(&mut self, gamepad_id: &usize) -> bool {
-    return (&mut self.game_controller).open(*gamepad_id as u32).is_ok();
+    return self.game_controller.open(*gamepad_id as u32).is_ok();
   }
 }

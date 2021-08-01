@@ -89,7 +89,7 @@ impl Client {
    * enabled, the client will also attempt to update RawInput gamepads.
    */
   pub fn update_all_pads(&mut self) -> () {
-    self.update_pads(false);
+    // self.update_pads(false);
     if self.config.get_rawinput_fallback() {
       self.update_pads(true);
     }
@@ -149,8 +149,8 @@ impl Client {
     for pad in &mut self.pads {
       if match pad.get_gamepad_id() {
         Some(gamepad_id) => {
-          !self.input_reader.is_connected(gamepad_id)
-          || !self.rawinput_reader.is_connected(gamepad_id)
+          // !self.input_reader.is_connected(gamepad_id)
+          !self.rawinput_reader.is_connected(gamepad_id)
         },
         None => true
       } {
@@ -177,7 +177,10 @@ impl Client {
       i = i + 1;
     }
     return Err(
-      "Couldn't assign gamepad since there were no slots available.".to_string()
+      format!(
+        "Couldn't assign gamepad (id: {}) since there were no slots available.",
+        gamepad_id
+      )
     );
   }
 
