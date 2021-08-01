@@ -7,7 +7,8 @@ use crate::{
   config::Config,
   input::common::{
     gilrs::GilrsInputReader,
-    multiinput::MultiInputReader
+    multiinput::MultiInputReader,
+    sdl::SdlAdapter
   },
 };
 use clap::{Arg, App, ArgMatches};
@@ -49,7 +50,8 @@ fn main() -> Result<(), ctrlc::Error> {
   let mut client: Client = Client::new(
     config,
     Box::new(GilrsInputReader::new()),
-    Box::new(MultiInputReader::new())
+    // Box::new(MultiInputReader::new())
+    Box::new(SdlAdapter::new())
   );
   client.set_server_ip(server_ip);
 

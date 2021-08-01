@@ -125,7 +125,7 @@ impl Client {
         }
       } else {
         if let InputEvent::GamepadButton(gamepad_id, button, value) = event {
-          if button == InputButton::Start && value == 1.0 {
+          if button == InputButton::RightBumper && value == 1.0 {
             match self.assign_pad(&gamepad_id, rawinput) {
               Ok(msg) => println!("{}", msg),
               Err(e) => println!("{}", e)
