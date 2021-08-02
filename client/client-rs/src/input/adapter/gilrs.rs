@@ -1,8 +1,8 @@
-use crate::input::common::reader::{
+use crate::input::adapter::common::{
   InputButton,
   InputAxis,
   InputEvent,
-  InputReader
+  InputAdapter
 };
 
 use gilrs::{
@@ -15,7 +15,7 @@ use gilrs::{
 use std::convert::TryInto;
 
 /**
- * A struct representing a cross-platform input reader that will read from a
+ * A struct representing a cross-platform input adapter that will read from a
  * GilRs instance.
  * 
  * As of the time of documentation, GilRs does not support any other gamepad
@@ -23,14 +23,14 @@ use std::convert::TryInto;
  * 4 gamepads. This has only been tested on Windows as well, but should
  * theoretically work with Unix OS's.
  */
-pub struct GilrsInputReader {
+pub struct GilrsAdapter {
   gilrs: Gilrs
 }
 
-impl GilrsInputReader {
-  // Constructs a GilRs input reader with an accompanying GilRs instance.
-  pub fn new() -> GilrsInputReader {
-    return GilrsInputReader {
+impl GilrsAdapter {
+  // Constructs a GilRs input adapter with an accompanying GilRs instance.
+  pub fn new() -> GilrsAdapter {
+    return GilrsAdapter {
       gilrs: Gilrs::new().unwrap()
     }
   }
@@ -101,7 +101,7 @@ impl GilrsInputReader {
   }
 }
 
-impl InputReader for GilrsInputReader {
+impl InputAdapter for GilrsAdapter {
   fn read(&mut self) -> Vec<InputEvent> {
     let mut events: Vec<InputEvent> = vec!();
     while let Some(gilrs::Event { id: gamepad_id, event: event_type, time: _ })

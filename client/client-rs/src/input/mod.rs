@@ -1,2 +1,2 @@
-pub mod common;
+pub mod adapter;
 pub mod switch;

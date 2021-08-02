@@ -3,13 +3,13 @@ pub mod config;
 pub mod input;
 
 use crate::{
-  client::Client,
-  config::Config,
-  input::common::{
-    gilrs::GilrsInputReader,
-    multiinput::MultiInputReader,
+  input::adapter::{
+    gilrs::GilrsAdapter,
+    multiinput::MultiInputAdapter,
     sdl::SdlAdapter
   },
+  client::Client,
+  config::Config, 
 };
 use clap::{Arg, App, ArgMatches};
 use crossbeam_channel::{bounded, tick, Receiver, select};
@@ -32,6 +32,7 @@ fn ctrl_channel() -> Result<Receiver<()>, ctrlc::Error> {
 }
 
 fn main() -> Result<(), ctrlc::Error> {
+
   let matches: ArgMatches = App::new("sys-hidplus client-rs")
     .version("1.0.0")
     .about("An input client for sys-hidplus that is written in Rust.")
@@ -49,8 +50,7 @@ fn main() -> Result<(), ctrlc::Error> {
 
   let mut client: Client = Client::new(
     config,
-    Box::new(GilrsInputReader::new()),
-    // Box::new(MultiInputReader::new())
+    // Box::new(GilrsAdapter::new()),
     Box::new(SdlAdapter::new())
   );
   client.set_server_ip(server_ip);

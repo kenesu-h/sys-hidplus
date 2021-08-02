@@ -1,4 +1,4 @@
-use crate::input::common::reader::{
+use crate::input::adapter::common::{
   InputButton,
   InputAxis,
   InputEvent
@@ -221,6 +221,11 @@ impl EmulatedPad {
   pub fn connect(&mut self, gamepad_id: &usize, switch_pad: SwitchPad) -> () {
     self.gamepad_id = Some(*gamepad_id);
     self.switch_pad = Some(switch_pad);
+  }
+
+  pub fn disconnect(&mut self) -> () {
+    self.gamepad_id = None;
+    self.switch_pad = None;
   }
 
   // Attempts to update this pad using an input event.

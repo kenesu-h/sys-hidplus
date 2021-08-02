@@ -1,10 +1,10 @@
 extern crate sdl2;
 
-use crate::input::common::reader::{
+use crate::input::adapter::common::{
   InputButton,
   InputAxis,
   InputEvent,
-  InputReader
+  InputAdapter
 };
 
 use sdl2::{
@@ -23,7 +23,7 @@ use sdl2::{
 use std::collections::HashMap;
 
 /**
- * A struct representing a cross-platform input reader that will read from an
+ * A struct representing a cross-platform input adapter that will read from an
  * SDL instance.
  * 
  * SDL so far seems to bypass the 4 XInput controller limit and supports both
@@ -175,7 +175,7 @@ impl SdlAdapter {
   }
 }
 
-impl InputReader for SdlAdapter {
+impl InputAdapter for SdlAdapter {
   fn read(&mut self) -> Vec<InputEvent> {
     let mut events: Vec<InputEvent> = vec!();
     while let Some(event) = self.event_pump.poll_event() {
@@ -221,6 +221,6 @@ impl InputReader for SdlAdapter {
   }
   
   fn is_connected(&mut self, gamepad_id: &usize) -> bool {
-    return self.game_controller.open(*gamepad_id as u32).is_ok();
+    return self.gamepads.contains_key(&(*gamepad_id as u32));
   }
 }

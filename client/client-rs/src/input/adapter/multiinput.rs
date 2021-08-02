@@ -1,8 +1,8 @@
-use crate::input::common::reader::{
+use crate::input::adapter::common::{
   InputButton,
   InputAxis,
   InputEvent,
-  InputReader
+  InputAdapter
 };
 
 use multiinput::{
@@ -16,7 +16,7 @@ use multiinput::{
 };
 
 /**
- * A struct representing a RawInput input reader that will read from the
+ * A struct representing a RawInput input adapter that will read from the
  * multiinput library using an instance of an input manager.
  * 
  * This input reader is ONLY meant to be used for RawInput devices, and at the
@@ -24,19 +24,19 @@ use multiinput::{
  * XInput support is poor right now and gamepads other than the DS4 have not
  * been tested. Do not expect an exquisite amount of support from this.
  */
-pub struct MultiInputReader {
+pub struct MultiInputAdapter {
   manager: RawInputManager
 }
 
-impl MultiInputReader {
+impl MultiInputAdapter {
   /**
-   * Constructs a multiinput reader with an input manager instance.
+   * Constructs a multiinput adapter with an input manager instance.
    * 
    * This input manager instance will not read from XInput devices or mouse &
    * keyboard, although the options exist and may be implemented in a later
    * update.
    */
-  pub fn new() -> MultiInputReader {
+  pub fn new() -> MultiInputAdapter {
     let mut manager: RawInputManager = RawInputManager::new().unwrap();
     manager.register_devices(
       DeviceType::Joysticks(
@@ -47,7 +47,7 @@ impl MultiInputReader {
         XInputInclude::False
       )
     );
-    return MultiInputReader {
+    return MultiInputAdapter {
       manager: manager
     }
   } 
@@ -187,7 +187,7 @@ impl MultiInputReader {
   }
 }
 
-impl InputReader for MultiInputReader {
+impl InputAdapter for MultiInputAdapter {
   fn read(&mut self) -> Vec<InputEvent> {
     let mut buffered: Vec<RawEvent> = vec!();
     while let Some(event) = self.manager.get_event() {

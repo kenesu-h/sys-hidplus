@@ -44,10 +44,10 @@ impl InputEvent {
 }
 
 /**
- * A trait representing a input reader that reads from an gamepad input library
+ * A trait representing a input adapter that reads from an gamepad input library
  * of some kind, from which an input event can be generated.
  */
-pub trait InputReader {
+pub trait InputAdapter {
   /**
    * A method that reads from an input library's buffer and returns the buffered
    * events.

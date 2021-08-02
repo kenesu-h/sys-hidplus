@@ -1,10 +1,10 @@
 use crate::{
   config::Config,
   input::{
-    common::reader::{
+    adapter::common::{
       InputButton,
       InputEvent,
-      InputReader,
+      InputAdapter,
     },
     switch::{
       SwitchPad,
@@ -41,11 +41,8 @@ pub struct Client {
   sock: UdpSocket,
   server_ip: String,
 
-  input_reader: Box<dyn InputReader>,
+  input_adapter: Box<dyn InputAdapter>,
   input_map: HashMap<usize, usize>,
-
-  rawinput_reader: Box<dyn InputReader>,
-  rawinput_map: HashMap<usize, usize>,
 
   pads: Vec<EmulatedPad>,
 }
@@ -61,7 +58,7 @@ impl Client {
    */
   pub fn new(
     config: Config,
-    input_reader: Box<dyn InputReader>, rawinput_reader: Box<dyn InputReader>
+    input_adapter: Box<dyn InputAdapter>
   ) -> Client {
     return Client {
       config: config,
@@ -69,11 +66,8 @@ impl Client {
       sock: UdpSocket::bind("0.0.0.0:8000").unwrap(),
       server_ip: "".to_string(),
 
-      input_reader: input_reader,
+      input_adapter: input_adapter,
       input_map: HashMap::new(),
-      
-      rawinput_reader: rawinput_reader,
-      rawinput_map: HashMap::new(),
 
       pads: c![EmulatedPad::new(), for _i in 0..4]
     }
@@ -89,9 +83,23 @@ impl Client {
    * enabled, the client will also attempt to update RawInput gamepads.
    */
   pub fn update_all_pads(&mut self) -> () {
-    // self.update_pads(false);
-    if self.config.get_rawinput_fallback() {
-      self.update_pads(true);
+    self.update_pads();
+  }
+
+  // Shitty name
+  fn disconnect_pads(&mut self) -> () {
+    let mut i = 0;
+    for pad in &mut self.pads {
+      match pad.get_gamepad_id() {
+        Some(gamepad_id) => {
+          if !self.input_adapter.is_connected(gamepad_id) {
+            println!("Disconnect gamepad (id: {}) in slot {}.", gamepad_id, i + 1);
+            pad.disconnect();
+          }
+        },
+        None => ()
+      }
+      i = i + 1;
     }
   }
 
@@ -105,28 +113,17 @@ impl Client {
    *
    * This should be called at a fixed time interval alongside update_server().
    */
-  fn update_pads(&mut self, rawinput: bool) -> () {
-    let events: Vec<InputEvent>;
-    if rawinput {
-      events = self.rawinput_reader.read();
-    } else {
-      events = self.input_reader.read();
-    }
-    for event in events {
-      let input_map: &HashMap<usize, usize>;
-      if rawinput {
-        input_map = &self.rawinput_map;
-      } else {
-        input_map = &self.input_map;
-      }
-      if let Some(i) = input_map.get(event.get_gamepad_id()) {
+  fn update_pads(&mut self) -> () {
+    self.disconnect_pads();
+    for event in self.input_adapter.read() {
+      if let Some(i) = self.input_map.get(event.get_gamepad_id()) {
         if *self.pads[*i].get_gamepad_id() == Some(*event.get_gamepad_id()) {
           self.pads[*i].update(&event);
         }
       } else {
         if let InputEvent::GamepadButton(gamepad_id, button, value) = event {
           if button == InputButton::RightBumper && value == 1.0 {
-            match self.assign_pad(&gamepad_id, rawinput) {
+            match self.assign_pad(&gamepad_id) {
               Ok(msg) => println!("{}", msg),
               Err(e) => println!("{}", e)
             }
@@ -143,31 +140,23 @@ impl Client {
    * controller is reported by the respective input reader as disconnected.
    */
   fn assign_pad(
-    &mut self, gamepad_id: &usize, rawinput: bool
+    &mut self, gamepad_id: &usize
   ) -> Result<String, String> {
     let mut i: usize = 0;
     for pad in &mut self.pads {
       if match pad.get_gamepad_id() {
-        Some(gamepad_id) => {
-          // !self.input_reader.is_connected(gamepad_id)
-          !self.rawinput_reader.is_connected(gamepad_id)
-        },
+        Some(gamepad_id) => !self.input_adapter.is_connected(gamepad_id),
         None => true
       } {
         match self.config.pads_to_vec()[i] {
           Some(switch_pad) => {
-            if rawinput {
-              self.rawinput_map.insert(*gamepad_id, i);
-            } else {
-              self.input_map.insert(*gamepad_id, i);
-            }
+            self.input_map.insert(*gamepad_id, i);
             pad.connect(gamepad_id, switch_pad);
             return Ok(
               format!(
-                "Gamepad (id: {}) connected to slot {}. RawInput: {}",
+                "Gamepad (id: {}) connected to slot {}.",
                 &gamepad_id,
-                i + 1,
-                rawinput
+                i + 1
               )
             );
           },
