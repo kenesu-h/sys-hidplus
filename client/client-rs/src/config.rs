@@ -4,14 +4,12 @@ use serde::{Serialize, Deserialize};
 
 /**
  * A struct representing a configuration for a client.
- *
- * - rawinput_fallback decides whether the client should attempt to use a RawInput library for
- *   controllers that aren't recognized by GilRs.
- * - The switch_pads represent what Switch controller type each slot will emulate.
+ * - server_ip represents the IP of the target Switch.
+ * - switch_pads represent what Switch controller type each slot will emulate.
  */
 #[derive(Serialize, Deserialize)]
 pub struct Config {
-  rawinput_fallback: bool,
+  server_ip: String,
   switch_pad_1: Option<SwitchPad>,
   switch_pad_2: Option<SwitchPad>,
   switch_pad_3: Option<SwitchPad>,
@@ -21,7 +19,7 @@ pub struct Config {
 impl Default for Config {
   fn default() -> Config {
     return Config {
-      rawinput_fallback: true,
+      server_ip: "".to_string(),
       switch_pad_1: Some(SwitchPad::ProController),
       switch_pad_2: Some(SwitchPad::ProController),
       switch_pad_3: Some(SwitchPad::ProController),
@@ -31,8 +29,8 @@ impl Default for Config {
 }
 
 impl Config { 
-  pub fn get_rawinput_fallback(&self) -> bool {
-    return self.rawinput_fallback;
+  pub fn get_server_ip(&self) -> &String {
+    return &self.server_ip;
   }
 
   pub fn pads_to_vec(&self) -> Vec<Option<SwitchPad>> {

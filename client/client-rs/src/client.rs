@@ -39,7 +39,6 @@ use std::{
 pub struct Client {
   config: Config,
   sock: UdpSocket,
-  server_ip: String,
 
   input_adapter: Box<dyn InputAdapter>,
   input_map: HashMap<usize, usize>,
@@ -59,24 +58,32 @@ impl Client {
   pub fn new(
     config: Config,
     input_adapter: Box<dyn InputAdapter>
-  ) -> Client {
-    return Client {
-      config: config,
-      // Unwrapping here might not be the best thing
-      sock: UdpSocket::bind("0.0.0.0:8000").unwrap(),
-      server_ip: "".to_string(),
-
-      input_adapter: input_adapter,
-      input_map: HashMap::new(),
-
-      pads: c![EmulatedPad::new(), for _i in 0..4]
+  ) -> Result<Client, String> {
+    if config.get_server_ip().is_empty() {
+      return Err(
+        format!(
+          "The server_ip field in config.toml is empty! If this is your first \
+          time running the client, please open it using a text editor and fill \
+          it out with the IP of your Switch. For example, if the IP is \
+          192.168.1.199, the server_ip field should look like this: \
+          server_ip = '192.168.1.199'"
+        )
+      );
+    } else {
+      return match UdpSocket::bind("0.0.0.0:8000") {
+        Ok(sock) => Ok(
+          Client {
+            config: config,
+            sock: sock,
+            input_adapter: input_adapter,
+            input_map: HashMap::new(),
+            pads: c![EmulatedPad::new(), for _i in 0..4]
+          }
+        ),
+        Err(e) => Err(format!("{}", e))
+      }
     }
   } 
-
-  // A method that sets the target server IP of this client.
-  pub fn set_server_ip(&mut self, server_ip: &str) -> () {
-    self.server_ip = server_ip.to_string();
-  }
 
   /**
    * A method that updates all emulated gamepads, disconnecting any unconnected
@@ -180,7 +187,7 @@ impl Client {
   pub fn update_server(&self) -> Result<(), String> {
     match self.sock.send_to(
       &PackedData::new(&self.pads, 4).to_bytes(),
-      format!("{}:8000", self.server_ip)
+      format!("{}:8000", self.config.get_server_ip())
     ) {
       Err(e) => return Err(
         format!("The following error occurred: {}.", e)
@@ -206,7 +213,7 @@ impl Client {
     while start.elapsed().as_millis() < 3000 {
       match self.sock.send_to(
         &PackedData::new(&self.pads, 4).to_bytes(),
-        format!("{}:8000", self.server_ip)
+        format!("{}:8000", self.config.get_server_ip())
       ) {
         Err(e) => return Err(e.to_string()),
         Ok(_) => ()
