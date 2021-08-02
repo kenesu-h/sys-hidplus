@@ -68,7 +68,7 @@ fn main() -> Result<(), ctrlc::Error> {
   loop {
     select! {
       recv(ticks) -> _ => {
-        client.update_all_pads();
+        client.update_pads();
         match client.update_server() {
           Err(e) => {
             println!("An error occurred while attempting to update the input server:");

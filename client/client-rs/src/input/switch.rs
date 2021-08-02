@@ -10,8 +10,6 @@ use serde::{Serialize, Deserialize};
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum SwitchPad {
   ProController,
-
-  // See comment in SwitchPad::value()
   JoyConLSide,
   JoyConRSide,
 
@@ -22,35 +20,7 @@ pub enum SwitchPad {
   */
 }
 
-impl SwitchPad {
-  // Returns the value of this Switch pad.
-  pub fn value(&self) -> i8 {
-    match self {
-      Self::ProController => return 1,
-      /*
-       * These do not work, I think. JoyConLSide is connected as a single left
-       * joy-con (expected to be paired with a right one), and it NOT sideways.
-       * This prevents it from being usable since you can't use the d-pad as
-       * your four face buttons. I suspect the right sideways joy-con suffers
-       * from the same problem. No clue if this is due to RednaxelaNnamtra's
-       * build (which uses an updated version of libnx).
-       *
-       * TODO: Update the input server to fix this.
-       */
-      Self::JoyConLSide => return 2,
-      Self::JoyConRSide => return 3,
-
-      /* TO BE ADDED:
-      Self::JoyConLR => return 4,
-      Self::JoyConL => return 5,
-      Self::JoyConR => return 6
-      */
-    }
-  }
-}
-
 // An enum representing all the different buttons on a Switch controller.
-// TODO: What about the home button?
 pub enum SwitchButton {
   A,
   B,
@@ -85,7 +55,7 @@ pub enum SwitchButton {
 impl SwitchButton {
   // Returns the bit corresponding to this button.
   pub fn value(&self) -> i32 {
-    // TODO: What about the home button?
+    // TODO: Home button cannot be emulated until libnx adds support.
     match self {
       Self::A => return 1,
       Self::B => return 1 << 1,
@@ -133,6 +103,7 @@ impl SwitchButton {
       
       InputButton::LeftBumper => Ok(Self::L),
       InputButton::RightBumper => Ok(Self::R),
+      // TODO: It may be worth changing these to SLL/SLR/SRL/SRR.
       InputButton::LeftTrigger => Ok(Self::ZL),
       InputButton::RightTrigger => Ok(Self::ZR),
 
@@ -140,24 +111,24 @@ impl SwitchButton {
       InputButton::Select => Ok(Self::Minus),
       
       InputButton::North => match switch_pad {
-        SwitchPad::ProController => return Ok(Self::X),
-        SwitchPad::JoyConLSide => return Ok(Self::DR),
-        SwitchPad::JoyConRSide => return Ok(Self::Y)
+        SwitchPad::ProController => Ok(Self::X),
+        SwitchPad::JoyConLSide => Ok(Self::DR),
+        SwitchPad::JoyConRSide => Ok(Self::Y)
       },
       InputButton::East => match switch_pad {
-        SwitchPad::ProController => return Ok(Self::A),
-        SwitchPad::JoyConLSide => return Ok(Self::DD),
-        SwitchPad::JoyConRSide => return Ok(Self::X)
+        SwitchPad::ProController => Ok(Self::A),
+        SwitchPad::JoyConLSide => Ok(Self::DD),
+        SwitchPad::JoyConRSide => Ok(Self::X)
       },
       InputButton::South => match switch_pad {
-        SwitchPad::ProController => return Ok(Self::B),
-        SwitchPad::JoyConLSide => return Ok(Self::DL),
-        SwitchPad::JoyConRSide => return Ok(Self::A)
+        SwitchPad::ProController => Ok(Self::B),
+        SwitchPad::JoyConLSide => Ok(Self::DL),
+        SwitchPad::JoyConRSide => Ok(Self::A)
       },
       InputButton::West => match switch_pad {
-        SwitchPad::ProController => return Ok(Self::Y),
-        SwitchPad::JoyConLSide => return Ok(Self::DU),
-        SwitchPad::JoyConRSide => return Ok(Self::B)
+        SwitchPad::ProController => Ok(Self::Y),
+        SwitchPad::JoyConLSide => Ok(Self::DU),
+        SwitchPad::JoyConRSide => Ok(Self::B)
       }
     }
   }
@@ -198,6 +169,7 @@ impl EmulatedPad {
     }
   }
 
+  // Getters
   pub fn get_gamepad_id(&self) -> &Option<usize> {
     return &self.gamepad_id;
   }
@@ -218,11 +190,16 @@ impl EmulatedPad {
     return &self.right;
   }
 
+  // A method that connects this pad by assigning a gamepad ID and Switch pad.
   pub fn connect(&mut self, gamepad_id: &usize, switch_pad: SwitchPad) -> () {
     self.gamepad_id = Some(*gamepad_id);
     self.switch_pad = Some(switch_pad);
   }
 
+  /**
+   * A method that disconnects this pad by removing its gamepad ID and Switch
+   * pad, leaving both with values of None.
+   */
   pub fn disconnect(&mut self) -> () {
     self.gamepad_id = None;
     self.switch_pad = None;

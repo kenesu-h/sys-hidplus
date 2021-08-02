@@ -79,21 +79,27 @@ impl Client {
   }
 
   /**
-   * A method that updates all emulated gamepads. If RawInput fallback is
-   * enabled, the client will also attempt to update RawInput gamepads.
+   * A method that updates all emulated gamepads, disconnecting any unconnected
+   * gamepads and parses input adapter events. Should be called at a fixed time
+   * interval.
    */
-  pub fn update_all_pads(&mut self) -> () {
-    self.update_pads();
+  pub fn update_pads(&mut self) -> () {
+    self.disconnect_inactive();
+    self.parse_events();
   }
 
-  // Shitty name
-  fn disconnect_pads(&mut self) -> () {
+  // A helper method that disconnects any gamepads that aren't connected.
+  fn disconnect_inactive(&mut self) -> () {
     let mut i = 0;
     for pad in &mut self.pads {
       match pad.get_gamepad_id() {
         Some(gamepad_id) => {
           if !self.input_adapter.is_connected(gamepad_id) {
-            println!("Disconnect gamepad (id: {}) in slot {}.", gamepad_id, i + 1);
+            println!(
+              "Disconnected gamepad (id: {}) from slot {}.",
+              gamepad_id,
+              i + 1
+            );
             pad.disconnect();
           }
         },
@@ -104,17 +110,10 @@ impl Client {
   }
 
   /**
-   * A helper method that reads events from an input reader and updates
+   * A helper method that parses events from an input adapter and updates
    * corresponding gamepads.
-   *
-   * The method will use the general gamepad API reader if RawInput fallback is
-   * disabled; otherwise, the RawInput reader. Corresponding maps will be used
-   * as well.
-   *
-   * This should be called at a fixed time interval alongside update_server().
    */
-  fn update_pads(&mut self) -> () {
-    self.disconnect_pads();
+  fn parse_events(&mut self) -> () {
     for event in self.input_adapter.read() {
       if let Some(i) = self.input_map.get(event.get_gamepad_id()) {
         if *self.pads[*i].get_gamepad_id() == Some(*event.get_gamepad_id()) {
@@ -257,9 +256,13 @@ pub struct PackedData {
 }
 
 // Maps a switch pad (or lack thereof) to its integer counterpart.
-fn switch_pad_to_int(switch_pad: &Option<SwitchPad>) -> i8 {
-  match switch_pad {
-    Some(pad) => return pad.value(),
+fn switch_pad_to_value(switch_pad: &Option<SwitchPad>) -> i8 {
+  return match switch_pad {
+    Some(pad) => match pad {
+      SwitchPad::ProController => 1,
+      SwitchPad::JoyConLSide => 2,
+      SwitchPad::JoyConRSide => 3
+    },
     None => return 0
   }
 }
@@ -271,28 +274,28 @@ impl PackedData {
       magic: 0x3276,
       connected: connected as u16,
 
-      con_type: switch_pad_to_int(pads[0].get_switch_pad()) as u16,
+      con_type: switch_pad_to_value(pads[0].get_switch_pad()) as u16,
       keys: *pads[0].get_keyout() as u64,
       joy_l_x: pads[0].get_left().0,
       joy_l_y: pads[0].get_left().1,
       joy_r_x: pads[0].get_right().0,
       joy_r_y: pads[0].get_right().1,
 
-      con_type2: switch_pad_to_int(pads[1].get_switch_pad()) as u16,
+      con_type2: switch_pad_to_value(pads[1].get_switch_pad()) as u16,
       keys2: *pads[1].get_keyout() as u64,
       joy_l_x2: pads[1].get_left().0,
       joy_l_y2: pads[1].get_left().1,
       joy_r_x2: pads[1].get_right().0,
       joy_r_y2: pads[1].get_right().1,
 
-      con_type3: switch_pad_to_int(pads[2].get_switch_pad()) as u16,
+      con_type3: switch_pad_to_value(pads[2].get_switch_pad()) as u16,
       keys3: *pads[2].get_keyout() as u64,
       joy_l_x3: pads[2].get_left().0,
       joy_l_y3: pads[2].get_left().1,
       joy_r_x3: pads[2].get_right().0,
       joy_r_y3: pads[2].get_right().1,
 
-      con_type4: switch_pad_to_int(pads[3].get_switch_pad()) as u16,
+      con_type4: switch_pad_to_value(pads[3].get_switch_pad()) as u16,
       keys4: *pads[3].get_keyout() as u64,
       joy_l_x4: pads[3].get_left().0,
       joy_l_y4: pads[3].get_left().1,
