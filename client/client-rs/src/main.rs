@@ -15,7 +15,7 @@ extern crate cute;
 #[macro_use]
 extern crate structure;
 
-// Opens a channel to receive Ctrl-C signals.
+// A helper function that opens a channel to receive Ctrl-C signals.
 fn ctrl_channel() -> Result<Receiver<()>, ctrlc::Error> {
   let (sender, receiver) = bounded(100);
   ctrlc::set_handler(move || {
@@ -25,7 +25,9 @@ fn ctrl_channel() -> Result<Receiver<()>, ctrlc::Error> {
   return Ok(receiver);
 }
 
-fn main() -> Result<(), ctrlc::Error> { 
+// A helper function to clean up the client, whether upon an error or closing.
+fn main() -> Result<(), ctrlc::Error> {
+  // TODO: Clean up more later, eventually we'd want to move to a MVC format.
   match confy::load_path("./config.toml") {
     Ok(config) => match Client::new(config, Box::new(SdlAdapter::new())) {
       Ok(mut client) => {
@@ -40,18 +42,15 @@ fn main() -> Result<(), ctrlc::Error> {
           select! {
             recv(ticks) -> _ => {
               client.update_pads();
-              match client.update_server() {
-                Err(e) => {
-                  println!("An error occurred while attempting to update the
-                    input server:");
-                  println!("{}", e);
-                  match client.cleanup() {
-                    Ok(msg) => println!("{}", msg),
-                    Err(e) => println!("{}", e)
-                  }
-                  return Ok(());
-                },
-                Ok(_) => ()
+              if let Err(e) = client.update_server() {
+                println!("An error occurred while attempting to update the
+                  input server:");
+                println!("{}", e);
+                match client.cleanup() {
+                  Ok(msg) => println!("{}", msg),
+                  Err(e) => println!("{}", e)
+                }
+                return Ok(());
               }
             }
             recv(ctrl_c_events) -> _ => {
