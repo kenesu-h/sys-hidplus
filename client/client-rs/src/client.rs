@@ -107,6 +107,7 @@ impl Client {
               gamepad_id,
               i + 1
             );
+            self.input_map.remove(gamepad_id);
             pad.disconnect();
           }
         },
