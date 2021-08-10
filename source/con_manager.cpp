@@ -87,7 +87,7 @@ int FakeController::deInitialize()
     return 0;
 }
 
-std::array<FakeController, 4> fakeControllerList;
+std::array<FakeController, 8> fakeControllerList;
 u64 buttonPresses;
 
 void apply_fake_con_state(struct input_message message)

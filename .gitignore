@@ -11,5 +11,5 @@
 *.nso
 *.npdm
 *.bat
-.vscode/c_cpp_properties.json
+.vscode/
 test.py
