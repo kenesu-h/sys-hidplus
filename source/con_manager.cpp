@@ -139,6 +139,38 @@ void apply_fake_con_state(struct input_message message)
                 joyrx = message.joy_r_x4;
                 joyry = message.joy_r_y4;
                 break;
+            case 4:
+                conType = message.con_type5;
+                keys = message.keys5;
+                joylx = message.joy_l_x5;
+                joyly = message.joy_l_y5;
+                joyrx = message.joy_r_x5;
+                joyry = message.joy_r_y5;
+                break;
+            case 5:
+                conType = message.con_type6;
+                keys = message.keys6;
+                joylx = message.joy_l_x6;
+                joyly = message.joy_l_y6;
+                joyrx = message.joy_r_x6;
+                joyry = message.joy_r_y6;
+                break;
+            case 6:
+                conType = message.con_type7;
+                keys = message.keys7;
+                joylx = message.joy_l_x7;
+                joyly = message.joy_l_y7;
+                joyrx = message.joy_r_x7;
+                joyry = message.joy_r_y7;
+                break;
+            case 7:
+                conType = message.con_type8;
+                keys = message.keys8;
+                joylx = message.joy_l_x8;
+                joyly = message.joy_l_y8;
+                joyrx = message.joy_r_x8;
+                joyry = message.joy_r_y8;
+                break;
         }
 
         // If there is no controller connected, we have to initialize one
