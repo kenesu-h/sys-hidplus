@@ -1,0 +1,21 @@
+name: Compile
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compile:
+    name: Compile release archive
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Compile sysmodule
+        run: docker-compose run compile
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: release/release_*.zip
