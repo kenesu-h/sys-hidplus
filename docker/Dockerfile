@@ -1,4 +1,4 @@
-FROM devkitpro/devkita64:20220216
+FROM devkitpro/devkita64:20240916
 
 ARG BASE_PATH="atmosphere/contents/4200000000001312"
 

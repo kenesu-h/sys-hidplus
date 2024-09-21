@@ -19,8 +19,6 @@
 #define IS_RELEASE 1
 
 static const SocketInitConfig sockInitConf = {
-    .bsdsockets_version = 1,
-
     .tcp_tx_buf_size        = 0x200,
     .tcp_rx_buf_size        = 0x400,
     .tcp_tx_buf_max_size    = 0x400,
@@ -35,6 +33,9 @@ static const SocketInitConfig sockInitConf = {
     .num_bsd_sessions = 3,
     .bsd_service_type = BsdServiceType_User
 };
+
+void *workmem = NULL;
+size_t workmem_size = 0x1000;
 
 extern "C" {
     // Sysmodules should not use applet*.
@@ -71,6 +72,7 @@ extern "C" {
     void __attribute__((weak)) __appInit(void)
     {
         Result rc;
+
         // Initialize default services.
         rc = smInitialize();
         if (R_FAILED(rc))
@@ -96,6 +98,10 @@ extern "C" {
         if (R_FAILED(rc))
             fatalThrow(MAKERESULT(Module_Libnx, LibnxError_InitFail_HID));
 
+        workmem = aligned_alloc(0x1000, workmem_size);
+        if (!workmem)
+            fatalThrow(MAKERESULT(Module_Libnx, LibnxError_OutOfMemory));
+
         //Enable this if you want to use time.
         rc = timeInitialize();
         if (R_FAILED(rc))
@@ -112,7 +118,7 @@ extern "C" {
             fatalThrow(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
 
         HiddbgHdlsSessionId* sessionId;
-        rc = hiddbgAttachHdlsWorkBuffer(sessionId);
+        rc = hiddbgAttachHdlsWorkBuffer(sessionId, workmem, workmem_size);
         if (R_FAILED(rc))
             fatalThrow(MAKERESULT(Module_Libnx, LibnxError_InitFail_HID));
 
@@ -149,6 +155,7 @@ extern "C" {
         hidExit();// Enable this if you want to use HID.
         smExit();
         socketExit();
+        free(workmem);
     }
 }
 
