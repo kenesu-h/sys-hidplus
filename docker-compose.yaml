@@ -1,0 +1,9 @@
+services:
+  compile:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: sys-hidplus-compile
+    volumes:
+      - .:/app
+      - ./release:/app/release
